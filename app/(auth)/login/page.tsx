@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../lib/supabase";
+import { supabase } from "../../lib/supabase";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -14,30 +14,36 @@ export default function LoginPage() {
         e.preventDefault();
         setLoading(true);
 
-        // 1️⃣ Sign in user
-        const { data: authData, error: authError } =
-            await supabase.auth.signInWithPassword({ email, password });
+        // 1️⃣ Login
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+        });
 
-        if (authError || !authData.user) {
-            alert(authError?.message || "Login gagal");
+        if (error || !data.user) {
+            alert("Login gagal");
             setLoading(false);
             return;
         }
 
-        // 2️⃣ Ambil role via RPC
-        const { data: role, error: roleError } = await supabase.rpc("get_user_role");
+        // 2️⃣ Ambil role langsung dari table
+        const { data: userData, error: roleError } = await supabase
+            .from("users")
+            .select("role")
+            .eq("id", data.user.id)
+            .single();
 
-        if (roleError || !role) {
-            alert("Gagal mengambil role user");
+        if (roleError || !userData) {
+            alert("Role tidak ditemukan");
             setLoading(false);
             return;
         }
 
-        // 3️⃣ Redirect sesuai role
-        if (role === "admin") {
-            router.push("/admin/dashboard");
+        // 3️⃣ Redirect berdasarkan role
+        if (userData.role === "admin") {
+            router.push("/admin");
         } else {
-            router.push("/dashboard");
+            router.push("/reporter");
         }
 
         setLoading(false);
