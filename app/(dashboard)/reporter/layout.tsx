@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
@@ -11,19 +10,16 @@ export default function ReporterLayout({
 }) {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
+    const [checked, setChecked] = useState(false);
 
     useEffect(() => {
         const checkRole = async () => {
-            // Ambil session dari Supabase client
             const { data: sessionData } = await supabase.auth.getSession();
-
             if (!sessionData.session?.user) {
-                // belum login → redirect login
-                router.push("/login");
+                if (!checked) router.push("/login");
                 return;
             }
 
-            // Ambil role dari table users
             const { data: userData } = await supabase
                 .from("users")
                 .select("role")
@@ -31,19 +27,16 @@ export default function ReporterLayout({
                 .single();
 
             if (!userData || userData.role !== "reporter") {
-                // bukan reporter → redirect ke admin
-                router.push("/admin");
+                if (!checked) router.push("/admin");
                 return;
             }
 
-            // user = reporter → render children
+            setChecked(true);
             setLoading(false);
         };
-
         checkRole();
-    }, [router]);
+    }, [router, checked]);
 
     if (loading) return null;
-
     return <>{children}</>;
 }
