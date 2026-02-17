@@ -163,15 +163,8 @@ export default function ReportTable({ data }: ReportTableProps) {
                     <Typography
                         variant="body2"
                         sx={{
-                            color: "#1976d2",
-                            cursor: "pointer",
-                            fontWeight: 500,
-                            "&:hover": { textDecoration: "underline" },
-                            transition: "all 0.2s ease",
+                            color: "#333", // Default color for normal text
                         }}
-                        onClick={() =>
-                            router.push(`/reporter/reports/${row.original.id}`)
-                        }
                     >
                         {row.original.title}
                     </Typography>
