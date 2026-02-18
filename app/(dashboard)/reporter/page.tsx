@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import LayoutUI from "./layoutUI";
-import { supabase } from "../../lib/supabase";
-import ReportTable from "./components/ReportTable";
+import LayoutUI from "../../lib/layoutUI"; // Update path jika sudah dipindah ke app/lib/LayoutUI.tsx
+import { supabase } from "@/app/lib/supabase"; // Update path jika perlu
+import ReportTable from "../../lib/ReportTable";
 
 interface Report {
     id: string;
@@ -111,11 +111,15 @@ export default function ReporterDashboard() {
         fetchReports();
     }, []);
 
+    // Tentukan role berdasarkan user
+    const userRole = user?.role === "admin" ? "admin" : "reporter";
+
     return (
         <LayoutUI
             pageTitle="Reporter Dashboard"
             userEmail={user?.email}
             userRole={user?.role}
+            role={userRole} // Tambah prop role
         >
             {loading ? (
                 <p>Loading reports...</p>

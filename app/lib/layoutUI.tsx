@@ -10,6 +10,7 @@ interface LayoutUIProps {
     pageTitle: string;
     userEmail?: string;
     userRole?: string;
+    role: "admin" | "reporter"; // Prop baru untuk kondisi
 }
 
 export default function LayoutUI({
@@ -17,8 +18,24 @@ export default function LayoutUI({
     pageTitle,
     userEmail,
     userRole,
+    role, // Tambah ini
 }: LayoutUIProps) {
     const pathname = usePathname();
+
+    // Kondisi untuk judul sidebar
+    const panelTitle = role === "admin" ? "Admin Panel" : "Reporter Panel";
+
+    // Kondisi untuk link-link
+    const navLinks =
+        role === "admin"
+            ? [
+                  { href: "/admin", label: "Dashboard" },
+                  { href: "/admin/reports", label: "Reports" },
+              ]
+            : [
+                  { href: "/reporter", label: "Dashboard" },
+                  { href: "/reporter/reports/new", label: "Create Report" },
+              ];
 
     return (
         <div className="flex min-h-screen bg-gray-50">
@@ -32,54 +49,45 @@ export default function LayoutUI({
             >
                 <div className="p-6">
                     <h2 className="text-xl font-bold mb-8 text-white">
-                        Reporter Panel
+                        {panelTitle} {/* Kondisi judul */}
                     </h2>
                     <nav className="flex flex-col gap-2">
-                        <Link
-                            href="/reporter"
-                            className={`px-4 py-3 rounded-lg transition-all duration-200 ${
-                                pathname === "/reporter"
-                                    ? "text-white"
-                                    : "text-blue-100 hover:bg-blue-500 hover:text-white"
-                            }`}
-                            style={
-                                pathname === "/reporter"
-                                    ? {
-                                          backgroundColor: "#1565c0",
-                                          fontWeight: 500,
-                                          boxShadow:
-                                              "0 2px 8px rgba(25, 118, 210, 0.3)",
-                                      }
-                                    : {}
-                            }
-                        >
-                            Dashboard
-                        </Link>
-                        <Link
-                            href="/reporter/reports/new"
-                            className={`px-4 py-3 rounded-lg transition-all duration-200 ${
-                                pathname.includes("/reports/new")
-                                    ? "text-white"
-                                    : "text-blue-100 hover:bg-blue-500 hover:text-white"
-                            }`}
-                            style={
-                                pathname.includes("/reports/new")
-                                    ? {
-                                          backgroundColor: "#1565c0",
-                                          fontWeight: 500,
-                                          boxShadow:
-                                              "0 2px 8px rgba(25, 118, 210, 0.3)",
-                                      }
-                                    : {}
-                            }
-                        >
-                            Create Report
-                        </Link>
+                        {navLinks.map((link) => (
+                            <Link
+                                key={link.href}
+                                href={link.href}
+                                className={`px-4 py-3 rounded-lg transition-all duration-200 ${
+                                    pathname === link.href ||
+                                    (link.href === "/admin/reports" &&
+                                        pathname.includes("/admin/reports")) ||
+                                    (link.href === "/reporter/reports/new" &&
+                                        pathname.includes("/reports/new"))
+                                        ? "text-white"
+                                        : "text-blue-100 hover:bg-blue-500 hover:text-white"
+                                }`}
+                                style={
+                                    pathname === link.href ||
+                                    (link.href === "/admin/reports" &&
+                                        pathname.includes("/admin/reports")) ||
+                                    (link.href === "/reporter/reports/new" &&
+                                        pathname.includes("/reports/new"))
+                                        ? {
+                                              backgroundColor: "#1565c0",
+                                              fontWeight: 500,
+                                              boxShadow:
+                                                  "0 2px 8px rgba(25, 118, 210, 0.3)",
+                                          }
+                                        : {}
+                                }
+                            >
+                                {link.label}
+                            </Link>
+                        ))}
                     </nav>
                 </div>
             </aside>
 
-            {/* Main Content */}
+            {/* Main Content - Tetap sama */}
             <main className="flex-1 p-8 bg-white">
                 <div className="flex justify-between items-center mb-8">
                     <h1 className="text-3xl font-semibold text-gray-900">

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import LayoutUI from "../../layoutUI";
+import LayoutUI from "../../../../lib/layoutUI"; // Pastikan path benar (sudah dipindah ke lib)
 import { supabase } from "../../../../lib/supabase";
 import {
     Button,
@@ -42,7 +42,7 @@ const EXCEL_EXT = ["xls", "xlsx"];
 /* ================= PAGE ================= */
 
 export default function ReportDetailPage() {
-    const { id: reportId } = useParams<{ id: string }>();
+    const { id: reportId } = useParams<{ id: string }>(); // Ambil parameter id dari URL (misal /reporter/123 → reportId = 123).
     const router = useRouter();
 
     const [report, setReport] = useState<ReportDetail | null>(null);
@@ -75,14 +75,15 @@ export default function ReportDetailPage() {
 
     // Helper extract relative path from file_url
     const getRelativePath = (fileUrl: string) => {
+        // Supabase storage URL biasanya berbentuk https://xyz.supabase.co/storage/v1/object/sign/bucket-name/path/to/file
         try {
             const url = new URL(fileUrl);
             return url.pathname.replace(
-                /^\/storage\/v1\/object\/sign\/report-attachments\//,
+                /^\/storage\/v1\/object\/sign\/report-attachments\//, // Kita hapus bagian /storage/v1/object/sign/report-attachments/ untuk mendapatkan path relatif yang digunakan di Supabase storage.
                 ""
             );
         } catch {
-            return fileUrl; // already relative
+            return fileUrl; // Jika parsing gagal, kembalikan URL asli (meskipun kemungkinan besar akan error saat buat signed URL).
         }
     };
 
@@ -178,12 +179,16 @@ export default function ReportDetailPage() {
 
     /* ================= UI ================= */
 
+    // Tentukan role berdasarkan user
+    const userRole = user?.role === "admin" ? "admin" : "reporter";
+
     if (loading)
         return (
             <LayoutUI
                 pageTitle="Loading..."
                 userEmail={user?.email}
                 userRole={user?.role}
+                role={userRole} // Tambah prop role
             >
                 Loading...
             </LayoutUI>
@@ -194,6 +199,7 @@ export default function ReportDetailPage() {
                 pageTitle="Not Found"
                 userEmail={user?.email}
                 userRole={user?.role}
+                role={userRole} // Tambah prop role
             >
                 Report not found
             </LayoutUI>
@@ -204,6 +210,7 @@ export default function ReportDetailPage() {
             pageTitle="Report Detail"
             userEmail={user?.email}
             userRole={user?.role}
+            role={userRole} // Tambah prop role
         >
             <Fade in={true} timeout={600}>
                 <Box

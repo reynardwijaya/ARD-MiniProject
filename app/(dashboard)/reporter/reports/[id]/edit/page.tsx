@@ -15,7 +15,7 @@ import {
     Fade,
 } from "@mui/material";
 import { supabase } from "../../../../../lib/supabase";
-import LayoutUI from "../../../layoutUI";
+import LayoutUI from "../../../../../lib/layoutUI";
 
 interface ReportData {
     title: string;
@@ -52,6 +52,9 @@ export default function EditReportPage() {
     const [loading, setLoading] = useState(true);
     const [attachments, setAttachments] = useState<ReportAttachment[]>([]);
     const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+    const [user, setUser] = useState<{ email: string; role: string } | null>(
+        null
+    ); // Tambah state user
 
     const [snackbar, setSnackbar] = useState({
         open: false,
@@ -65,17 +68,27 @@ export default function EditReportPage() {
         const fetchData = async () => {
             setLoading(true);
 
+            // Tambah fetch user
             const { data: userData } = await supabase.auth.getUser();
-            console.log("AUTH USER:", userData);
+            if (userData.user) {
+                const { data: userRoleData, error: userError } = await supabase
+                    .from("users")
+                    .select("role")
+                    .eq("id", userData.user.id)
+                    .single();
+                if (!userError && userRoleData) {
+                    setUser({
+                        email: userData.user.email!,
+                        role: userRoleData.role,
+                    });
+                }
+            }
 
             const { data, error } = await supabase
                 .from("adverse_reports")
                 .select("*")
                 .eq("id", id)
                 .single();
-
-            console.log("SELECT DATA:", data);
-            console.log("SELECT ERROR:", error);
 
             if (error || !data) {
                 router.push("/reporter");
@@ -116,6 +129,9 @@ export default function EditReportPage() {
 
         fetchData();
     }, [id, router]);
+
+    // Tentukan role berdasarkan user
+    const userRole = user?.role === "admin" ? "admin" : "reporter";
 
     useEffect(() => {
         const generatePreview = async () => {
@@ -254,10 +270,24 @@ export default function EditReportPage() {
     };
 
     if (loading || !formData)
-        return <LayoutUI pageTitle="Loading...">Loading...</LayoutUI>;
+        return (
+            <LayoutUI
+                pageTitle="Loading..."
+                userEmail={user?.email}
+                userRole={user?.role}
+                role={userRole} // Tambah prop role
+            >
+                Loading...
+            </LayoutUI>
+        );
 
     return (
-        <LayoutUI pageTitle="Edit Report">
+        <LayoutUI
+            pageTitle="Edit Report"
+            userEmail={user?.email}
+            userRole={user?.role}
+            role={userRole} // Tambah prop role
+        >
             <Fade in={true} timeout={600}>
                 <Box
                     sx={{

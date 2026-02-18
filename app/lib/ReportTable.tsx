@@ -33,7 +33,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import SearchIcon from "@mui/icons-material/Search";
 import ClearIcon from "@mui/icons-material/Clear";
 
-import { supabase } from "../../../lib/supabase";
+import { supabase } from "./supabase";
 
 interface Report {
     id: string;
@@ -44,40 +44,39 @@ interface Report {
     department_name: string;
     location: string;
     department_id?: string;
+    user_email?: string; // Tambah untuk admin (email reporter)
+    user_id?: string; // Ganti name ke user_id (optional, hanya untuk admin)
 }
 
 interface ReportTableProps {
-    // Tipe props untuk komponen ReportTable, yang menerima data berupa array of Report.
     data: Report[];
+    role?: string; // Tambah prop role untuk kondisikan admin/reporter
 }
 
-export default function ReportTable({ data }: ReportTableProps) {
-    // Komponen utama untuk menampilkan tabel laporan. Menerima props data yang merupakan array of Report.
+export default function ReportTable({ data, role }: ReportTableProps) {
     const router = useRouter();
-    const [search, setSearch] = useState(""); // State untuk menyimpan nilai pencarian dari input search. Awalnya kosong karena belum ada pencarian.
+    const [search, setSearch] = useState("");
     const [tableData, setTableData] = useState<Report[]>(data);
 
     // Filtered data by search
     const filteredData = useMemo(() => {
-        // useMemo → cache hasil filter supaya tidak dihitung ulang setiap render kecuali search atau tableData berubah.
         if (!search) return tableData;
         return tableData.filter((r) =>
             r.title.toLowerCase().includes(search.toLowerCase())
         );
-    }, [search, tableData]); // search → untuk memicu filter ulang saat nilai pencarian berubah. tableData → untuk memicu filter ulang saat data tabel berubah (misal setelah fetch department name).
+    }, [search, tableData]);
 
     useEffect(() => {
         const fetchDepartments = async () => {
             const updatedData = await Promise.all(
                 tableData.map(async (report) => {
-                    // Kita map setiap report untuk cek apakah department_name-nya masih "-" dan ada department_id. Jika iya, kita fetch nama departemen dari tabel department berdasarkan department_id.
                     if (
                         report.department_id &&
                         report.department_name === "-"
                     ) {
                         try {
-                            const { data: dept, error } = await supabase // Mengambil nama department dari tabel department.
-                                .from("department") // Nama tabel sesuai schema
+                            const { data: dept, error } = await supabase
+                                .from("department")
                                 .select("name")
                                 .eq("id", report.department_id)
                                 .single();
@@ -85,7 +84,7 @@ export default function ReportTable({ data }: ReportTableProps) {
                                 return report;
                             }
                             return {
-                                ...report, // spread operator -> salin semua field dari report asli.
+                                ...report,
                                 department_name: dept?.name ?? "-",
                             };
                         } catch (err) {
@@ -95,22 +94,63 @@ export default function ReportTable({ data }: ReportTableProps) {
                     return report;
                 })
             );
-            setTableData(updatedData); // Setelah semua report diproses, kita update state tableData dengan data yang sudah dilengkapi nama departemennya.
+            setTableData(updatedData);
         };
         if (tableData.length > 0) {
-            // Hanya jalankan fetchDepartments() kalau ada report di tableData.
             fetchDepartments();
         }
     }, [data]);
 
-    // Delete handler
+    // Fetch email reporter untuk admin (hanya jika role admin dan ada user_id)
+    useEffect(() => {
+        if (role === "admin") {
+            const fetchReporterEmails = async () => {
+                const updatedData = await Promise.all(
+                    tableData.map(async (report) => {
+                        if (report.user_email) return report; // Sudah ada, skip
+                        if (!report.user_id) {
+                            console.log(`Report ${report.id}: no user_id`);
+                            return report; // Tidak ada user_id, skip
+                        }
+                        console.log(
+                            `Fetching name for user_id: ${report.user_id}`
+                        );
+                        const { data: userData, error } = await supabase
+                            .from("users")
+                            .select("name") // Ganti email ke name
+                            .eq("id", report.user_id)
+                            .single();
+                        if (error) {
+                            console.log(
+                                `Error fetching name for user_id ${report.user_id}:`,
+                                error
+                            );
+                            return { ...report, user_email: "-" };
+                        }
+                        console.log(
+                            `Name for user_id ${report.user_id}: ${userData?.name}`
+                        );
+                        return {
+                            ...report,
+                            user_email: userData?.name ?? "-", // Ganti email ke name
+                        };
+                    })
+                );
+                setTableData(updatedData);
+            };
+            if (tableData.length > 0) {
+                fetchReporterEmails();
+            }
+        }
+    }, [data, role]);
+
+    // Delete handler (hanya untuk reporter)
     const handleDelete = async (id: string) => {
         const confirmDelete = confirm("Are you sure you want to delete?");
         if (!confirmDelete) return;
 
         try {
             const response = await fetch(`/api/delete-report?id=${id}`, {
-                // Panggil API route untuk delete report berdasarkan ID.
                 method: "DELETE",
             });
 
@@ -122,10 +162,7 @@ export default function ReportTable({ data }: ReportTableProps) {
             }
 
             alert("Report deleted successfully");
-            // (prev) -> Ini callback function yang menerima nilai state sebelumnya (prev) sebagai input.
-            // filter -> membuat array baru hanya dengan item yang memenuhi kondisi.
-            // Kondisi: r.id !== id → artinya ambil semua report kecuali yang id-nya sama dengan id yang dihapus.
-            setTableData((prev) => prev.filter((r) => r.id !== id)); // Setelah berhasil delete, kita update state tableData dengan menghapus report yang sudah di-delete supaya UI langsung update tanpa perlu refresh.
+            setTableData((prev) => prev.filter((r) => r.id !== id));
         } catch (error: unknown) {
             const errMsg =
                 (error as { message?: string })?.message ?? "Unknown error";
@@ -133,15 +170,13 @@ export default function ReportTable({ data }: ReportTableProps) {
         }
     };
 
-    // Columns
-    const columns = useMemo<ColumnDef<Report>[]>( // useMemo → cache definisi kolom supaya tidak dibuat ulang setiap render kecuali router berubah (karena kita pakai router di action).
-        () => [
+    // Columns berdasarkan role
+    const columns = useMemo<ColumnDef<Report>[]>(() => {
+        const baseColumns: ColumnDef<Report>[] = [
             {
-                accessorKey: "title", // accessorKey → akses data report.title untuk kolom ini.
+                accessorKey: "title",
                 header: "Title",
-                cell: (
-                    { row } // Custom cell render untuk title supaya bisa styling lebih menarik.
-                ) => (
+                cell: ({ row }) => (
                     <Typography
                         variant="body2"
                         sx={{
@@ -231,7 +266,24 @@ export default function ReportTable({ data }: ReportTableProps) {
                     );
                 },
             },
-            {
+        ];
+
+        // Tambah kolom email untuk admin
+        if (role === "admin") {
+            baseColumns.splice(1, 0, {
+                accessorKey: "user_email",
+                header: "Reporter Email",
+                cell: ({ getValue }) => (
+                    <Typography variant="body2">
+                        {getValue() as string}
+                    </Typography>
+                ),
+            });
+        }
+
+        // Tambah kolom actions untuk reporter
+        if (role === "reporter") {
+            baseColumns.push({
                 id: "actions",
                 header: "Actions",
                 cell: ({ row }) => {
@@ -294,8 +346,7 @@ export default function ReportTable({ data }: ReportTableProps) {
                                     }}
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        handleDelete(row.original.id); // Panggil handler delete saat tombol delete diklik.
-                                        //  Kita stopPropagation supaya klik tombol tidak trigger onClick row yang navigasi ke detail.
+                                        handleDelete(row.original.id);
                                     }}
                                 >
                                     <DeleteIcon fontSize="small" />
@@ -304,10 +355,11 @@ export default function ReportTable({ data }: ReportTableProps) {
                         </Box>
                     );
                 },
-            },
-        ],
-        [router]
-    );
+            });
+        }
+
+        return baseColumns;
+    }, [role, router]);
 
     const table = useReactTable({
         data: filteredData,
@@ -395,7 +447,7 @@ export default function ReportTable({ data }: ReportTableProps) {
                                             }}
                                         >
                                             {flexRender(
-                                                header.column.columnDef.header, // Render header cell (bisa string atau fungsi render).
+                                                header.column.columnDef.header,
                                                 header.getContext()
                                             )}
                                         </TableCell>
@@ -404,52 +456,44 @@ export default function ReportTable({ data }: ReportTableProps) {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {table.getRowModel().rows.map(
-                                (
-                                    row,
-                                    index // table.getRowModel().rows → dapatkan baris yang sudah diproses (filter, sort, paginate) untuk ditampilkan di tabel. Kita map setiap row untuk render TableRow.
-                                ) => (
-                                    <TableRow
-                                        key={row.id}
-                                        sx={{
-                                            "&:hover": {
-                                                bgcolor: "#f0f8ff",
-                                                transform: "translateY(-1px)",
-                                                boxShadow:
-                                                    "0 2px 8px rgba(25, 118, 210, 0.1)",
-                                            },
-                                            transition: "all 0.2s ease",
-                                            cursor: "pointer",
-                                        }}
-                                        onClick={() =>
-                                            router.push(
-                                                `/reporter/reports/${row.original.id}`
-                                            )
-                                        }
-                                    >
-                                        {row.getVisibleCells().map(
-                                            (
-                                                cell // row.getVisibleCells() → dapatkan sel yang terlihat (sesuai kolom yang didefinisikan) untuk setiap baris. Kita map setiap cell untuk render TableCell.
-                                            ) => (
-                                                <TableCell
-                                                    key={cell.id}
-                                                    sx={{
-                                                        borderBottom:
-                                                            "1px solid #e0e0e0",
-                                                        py: 2,
-                                                    }}
-                                                >
-                                                    {flexRender(
-                                                        cell.column.columnDef
-                                                            .cell,
-                                                        cell.getContext()
-                                                    )}
-                                                </TableCell>
-                                            )
-                                        )}
-                                    </TableRow>
-                                )
-                            )}
+                            {table.getRowModel().rows.map((row, index) => (
+                                <TableRow
+                                    key={row.id}
+                                    sx={{
+                                        "&:hover": {
+                                            bgcolor: "#f0f8ff",
+                                            transform: "translateY(-1px)",
+                                            boxShadow:
+                                                "0 2px 8px rgba(25, 118, 210, 0.1)",
+                                        },
+                                        transition: "all 0.2s ease",
+                                        cursor: "pointer",
+                                    }}
+                                    onClick={() =>
+                                        router.push(
+                                            role === "admin"
+                                                ? `/admin/reports/${row.original.id}`
+                                                : `/reporter/reports/${row.original.id}`
+                                        )
+                                    }
+                                >
+                                    {row.getVisibleCells().map((cell) => (
+                                        <TableCell
+                                            key={cell.id}
+                                            sx={{
+                                                borderBottom:
+                                                    "1px solid #e0e0e0",
+                                                py: 2,
+                                            }}
+                                        >
+                                            {flexRender(
+                                                cell.column.columnDef.cell,
+                                                cell.getContext()
+                                            )}
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                            ))}
                         </TableBody>
                     </Table>
                 </TableContainer>

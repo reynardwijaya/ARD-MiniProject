@@ -19,8 +19,8 @@ import {
     Paper,
     Fade,
 } from "@mui/material";
-import { supabase } from "../../../../lib/supabase";
-import LayoutUI from "../../layoutUI";
+import { supabase } from "../../../../lib/supabase"; // Update jika perlu: import { supabase } from "@/app/lib/supabase";
+import LayoutUI from "../../../../lib/layoutUI"; // Update jika perlu: import LayoutUI from "@/app/lib/layoutUI";
 
 interface Department {
     id: string;
@@ -130,7 +130,7 @@ export default function CreateReportPage() {
                 severity,
                 status,
                 department_id: departmentId,
-                reporter_id: user.id,
+                reporter_id: user.id, // Note: Jika kolom di database adalah user_id, ganti ke user_id
             })
             .select()
             .single();
@@ -201,11 +201,15 @@ export default function CreateReportPage() {
         setLoading(false);
     };
 
+    // Tentukan role berdasarkan user (untuk prop LayoutUI)
+    const userRole = user?.role === "admin" ? "admin" : "reporter";
+
     return (
         <LayoutUI
             pageTitle="Create New Report"
             userEmail={user?.email}
             userRole={user?.role}
+            role={userRole} // Tambah prop role
         >
             <Fade in={true} timeout={600}>
                 <Box
