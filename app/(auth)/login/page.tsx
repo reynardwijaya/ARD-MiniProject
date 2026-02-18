@@ -19,14 +19,21 @@ export default function LoginPage() {
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    //  email & password → menyimpan input user.
+    // loading → menandakan proses login sedang berjalan.
+    // error → menyimpan pesan error jika login gagal.
 
     const handleLogin = async (e: React.FormEvent) => {
+        // Kita mencegah reload halaman supaya login bisa dijalankan secara SPA (Single Page Application) dengan React.
         e.preventDefault();
         setLoading(true);
         setError(null);
 
         //  Login
+        // method dari Supabase untuk login dengan email & password.
         const { data, error } = await supabase.auth.signInWithPassword({
+            // data → berisi info user kalau login berhasil.
+            // error → berisi error kalau login gagal (misal email salah atau password salah).
             email,
             password,
         });
@@ -43,6 +50,9 @@ export default function LoginPage() {
             .select("role")
             .eq("id", data.user.id)
             .single();
+        //             .eq("id", data.user.id) → cari data user berdasarkan id Supabase.
+
+        // .single() → karena hanya satu baris yang diharapkan.
 
         if (roleError || !userData) {
             setError("Role not found");

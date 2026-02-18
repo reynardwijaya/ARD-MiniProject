@@ -18,6 +18,9 @@ export default function ReporterLayout({
             if (!sessionData.session?.user) {
                 if (!checked) router.push("/login");
                 return;
+                //                 supabase.auth.getSession() → cek apakah ada user yang sedang login.
+
+                // Jika tidak ada session, redirect ke /login.
             }
 
             const { data: userData } = await supabase

@@ -47,82 +47,58 @@ interface Report {
 }
 
 interface ReportTableProps {
+    // Tipe props untuk komponen ReportTable, yang menerima data berupa array of Report.
     data: Report[];
 }
 
 export default function ReportTable({ data }: ReportTableProps) {
+    // Komponen utama untuk menampilkan tabel laporan. Menerima props data yang merupakan array of Report.
     const router = useRouter();
-    const [search, setSearch] = useState("");
+    const [search, setSearch] = useState(""); // State untuk menyimpan nilai pencarian dari input search. Awalnya kosong karena belum ada pencarian.
     const [tableData, setTableData] = useState<Report[]>(data);
 
     // Filtered data by search
     const filteredData = useMemo(() => {
+        // useMemo → cache hasil filter supaya tidak dihitung ulang setiap render kecuali search atau tableData berubah.
         if (!search) return tableData;
         return tableData.filter((r) =>
             r.title.toLowerCase().includes(search.toLowerCase())
         );
-    }, [search, tableData]);
+    }, [search, tableData]); // search → untuk memicu filter ulang saat nilai pencarian berubah. tableData → untuk memicu filter ulang saat data tabel berubah (misal setelah fetch department name).
 
     useEffect(() => {
         const fetchDepartments = async () => {
-            console.log(
-                "Starting department fetch for reports:",
-                tableData.map((r) => ({
-                    id: r.id,
-                    department_id: r.department_id,
-                    department_name: r.department_name,
-                }))
-            );
             const updatedData = await Promise.all(
                 tableData.map(async (report) => {
+                    // Kita map setiap report untuk cek apakah department_name-nya masih "-" dan ada department_id. Jika iya, kita fetch nama departemen dari tabel department berdasarkan department_id.
                     if (
                         report.department_id &&
                         report.department_name === "-"
                     ) {
-                        console.log(
-                            `Fetching department for report ${report.id}, department_id: ${report.department_id}`
-                        );
                         try {
-                            const { data: dept, error } = await supabase
+                            const { data: dept, error } = await supabase // Mengambil nama department dari tabel department.
                                 .from("department") // Nama tabel sesuai schema
                                 .select("name")
                                 .eq("id", report.department_id)
                                 .single();
                             if (error) {
-                                console.error(
-                                    `Error fetching department for ${report.id}:`,
-                                    error
-                                );
                                 return report;
                             }
-                            console.log(
-                                `Fetched department for ${report.id}: ${dept?.name}`
-                            );
                             return {
-                                ...report,
+                                ...report, // spread operator -> salin semua field dari report asli.
                                 department_name: dept?.name ?? "-",
                             };
                         } catch (err) {
-                            console.error(
-                                `Fetch failed for ${report.id}:`,
-                                err
-                            );
                             return report;
                         }
                     }
                     return report;
                 })
             );
-            console.log(
-                "Updated data after fetch:",
-                updatedData.map((r) => ({
-                    id: r.id,
-                    department_name: r.department_name,
-                }))
-            ); // Log hasil
-            setTableData(updatedData);
+            setTableData(updatedData); // Setelah semua report diproses, kita update state tableData dengan data yang sudah dilengkapi nama departemennya.
         };
         if (tableData.length > 0) {
+            // Hanya jalankan fetchDepartments() kalau ada report di tableData.
             fetchDepartments();
         }
     }, [data]);
@@ -134,6 +110,7 @@ export default function ReportTable({ data }: ReportTableProps) {
 
         try {
             const response = await fetch(`/api/delete-report?id=${id}`, {
+                // Panggil API route untuk delete report berdasarkan ID.
                 method: "DELETE",
             });
 
@@ -145,7 +122,10 @@ export default function ReportTable({ data }: ReportTableProps) {
             }
 
             alert("Report deleted successfully");
-            setTableData((prev) => prev.filter((r) => r.id !== id));
+            // (prev) -> Ini callback function yang menerima nilai state sebelumnya (prev) sebagai input.
+            // filter -> membuat array baru hanya dengan item yang memenuhi kondisi.
+            // Kondisi: r.id !== id → artinya ambil semua report kecuali yang id-nya sama dengan id yang dihapus.
+            setTableData((prev) => prev.filter((r) => r.id !== id)); // Setelah berhasil delete, kita update state tableData dengan menghapus report yang sudah di-delete supaya UI langsung update tanpa perlu refresh.
         } catch (error: unknown) {
             const errMsg =
                 (error as { message?: string })?.message ?? "Unknown error";
@@ -154,16 +134,18 @@ export default function ReportTable({ data }: ReportTableProps) {
     };
 
     // Columns
-    const columns = useMemo<ColumnDef<Report>[]>(
+    const columns = useMemo<ColumnDef<Report>[]>( // useMemo → cache definisi kolom supaya tidak dibuat ulang setiap render kecuali router berubah (karena kita pakai router di action).
         () => [
             {
-                accessorKey: "title",
+                accessorKey: "title", // accessorKey → akses data report.title untuk kolom ini.
                 header: "Title",
-                cell: ({ row }) => (
+                cell: (
+                    { row } // Custom cell render untuk title supaya bisa styling lebih menarik.
+                ) => (
                     <Typography
                         variant="body2"
                         sx={{
-                            color: "#333", // Default color for normal text
+                            color: "#333",
                         }}
                     >
                         {row.original.title}
@@ -255,18 +237,26 @@ export default function ReportTable({ data }: ReportTableProps) {
                 cell: ({ row }) => {
                     const status = row.original.status.toLowerCase();
                     if (!["draft", "rejected"].includes(status)) {
+                        let text = "Waiting for approval";
+                        if (status === "approved") {
+                            text = "Approved";
+                        } else if (status === "reviewed") {
+                            text = "Under Review";
+                        } else if (status === "submitted") {
+                            text = "Waiting review";
+                        }
+
                         return (
                             <Tooltip title="Cannot edit approved/reviewed report">
                                 <Typography
                                     variant="body2"
                                     sx={{ color: "#9e9e9e" }}
                                 >
-                                    -
+                                    {text}
                                 </Typography>
                             </Tooltip>
                         );
                     }
-
                     return (
                         <Box sx={{ display: "flex", gap: 1 }}>
                             <Tooltip title="Edit">
@@ -304,7 +294,8 @@ export default function ReportTable({ data }: ReportTableProps) {
                                     }}
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        handleDelete(row.original.id);
+                                        handleDelete(row.original.id); // Panggil handler delete saat tombol delete diklik.
+                                        //  Kita stopPropagation supaya klik tombol tidak trigger onClick row yang navigasi ke detail.
                                     }}
                                 >
                                     <DeleteIcon fontSize="small" />
@@ -404,7 +395,7 @@ export default function ReportTable({ data }: ReportTableProps) {
                                             }}
                                         >
                                             {flexRender(
-                                                header.column.columnDef.header,
+                                                header.column.columnDef.header, // Render header cell (bisa string atau fungsi render).
                                                 header.getContext()
                                             )}
                                         </TableCell>
@@ -413,42 +404,52 @@ export default function ReportTable({ data }: ReportTableProps) {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {table.getRowModel().rows.map((row, index) => (
-                                <TableRow
-                                    key={row.id}
-                                    sx={{
-                                        "&:hover": {
-                                            bgcolor: "#f0f8ff",
-                                            transform: "translateY(-1px)",
-                                            boxShadow:
-                                                "0 2px 8px rgba(25, 118, 210, 0.1)",
-                                        },
-                                        transition: "all 0.2s ease",
-                                        cursor: "pointer",
-                                    }}
-                                    onClick={() =>
-                                        router.push(
-                                            `/reporter/reports/${row.original.id}`
-                                        )
-                                    }
-                                >
-                                    {row.getVisibleCells().map((cell) => (
-                                        <TableCell
-                                            key={cell.id}
-                                            sx={{
-                                                borderBottom:
-                                                    "1px solid #e0e0e0",
-                                                py: 2,
-                                            }}
-                                        >
-                                            {flexRender(
-                                                cell.column.columnDef.cell,
-                                                cell.getContext()
-                                            )}
-                                        </TableCell>
-                                    ))}
-                                </TableRow>
-                            ))}
+                            {table.getRowModel().rows.map(
+                                (
+                                    row,
+                                    index // table.getRowModel().rows → dapatkan baris yang sudah diproses (filter, sort, paginate) untuk ditampilkan di tabel. Kita map setiap row untuk render TableRow.
+                                ) => (
+                                    <TableRow
+                                        key={row.id}
+                                        sx={{
+                                            "&:hover": {
+                                                bgcolor: "#f0f8ff",
+                                                transform: "translateY(-1px)",
+                                                boxShadow:
+                                                    "0 2px 8px rgba(25, 118, 210, 0.1)",
+                                            },
+                                            transition: "all 0.2s ease",
+                                            cursor: "pointer",
+                                        }}
+                                        onClick={() =>
+                                            router.push(
+                                                `/reporter/reports/${row.original.id}`
+                                            )
+                                        }
+                                    >
+                                        {row.getVisibleCells().map(
+                                            (
+                                                cell // row.getVisibleCells() → dapatkan sel yang terlihat (sesuai kolom yang didefinisikan) untuk setiap baris. Kita map setiap cell untuk render TableCell.
+                                            ) => (
+                                                <TableCell
+                                                    key={cell.id}
+                                                    sx={{
+                                                        borderBottom:
+                                                            "1px solid #e0e0e0",
+                                                        py: 2,
+                                                    }}
+                                                >
+                                                    {flexRender(
+                                                        cell.column.columnDef
+                                                            .cell,
+                                                        cell.getContext()
+                                                    )}
+                                                </TableCell>
+                                            )
+                                        )}
+                                    </TableRow>
+                                )
+                            )}
                         </TableBody>
                     </Table>
                 </TableContainer>
