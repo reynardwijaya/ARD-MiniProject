@@ -37,7 +37,7 @@ interface Department {
 
 interface User {
     id: string;
-    email: string;
+    name: string;
 }
 
 interface AttachmentRaw {
@@ -76,7 +76,7 @@ export default function AdminReportDetailPage() {
                     .eq("id", reportId)
                     .single(),
                 supabase.from("department").select("id, name"),
-                supabase.from("users").select("id, email"),
+                supabase.from("users").select("id, name"),
                 supabase
                     .from("report_attachments")
                     .select("file_name, file_url")
@@ -93,7 +93,7 @@ export default function AdminReportDetailPage() {
             const userMap: { [key: string]: string } = {};
             if (userRes.data) {
                 (userRes.data as User[]).forEach((u: User) => {
-                    userMap[u.id] = u.email;
+                    userMap[u.id] = u.name;
                 });
             }
 

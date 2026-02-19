@@ -35,7 +35,7 @@ interface AdverseReport {
 
 interface UserData {
     id: string;
-    email: string;
+    name: string;
 }
 
 export default function AdminReportsPage() {
@@ -77,19 +77,17 @@ export default function AdminReportsPage() {
             setError(null);
 
             try {
-                // ✅ FETCH SEMUA DATA SECARA PARALEL
                 const [reportsRes, departmentsRes, usersRes] =
                     await Promise.all([
-                        // 1. Query reports
                         supabase
                             .from("adverse_reports")
                             .select(
                                 "id, title, severity, status, incident_date, department_id, location, user_id"
-                            ),
-                        // 2. Query departments
+                            )
+                            .in("status", ["approved", "rejected"])
+                            .order("created_at", { ascending: false }),
                         supabase.from("department").select("id, name"),
-                        // 3. Query ALL users (ambil semua, lebih simple)
-                        supabase.from("users").select("id, email"),
+                        supabase.from("users").select("id, name"),
                     ]);
 
                 const reportData = reportsRes.data;
@@ -104,15 +102,13 @@ export default function AdminReportsPage() {
                     return;
                 }
 
-                // ✅ BUILD MAP SEBELUM MAPPPING
-                const userEmailMap: { [key: string]: string } = {};
+                const userNameMap: { [key: string]: string } = {};
                 if (userData) {
                     userData.forEach((u: UserData) => {
-                        userEmailMap[u.id] = u.email;
+                        userNameMap[u.id] = u.name;
                     });
                 }
 
-                // ✅ MAP SEMUA DATA SEKALIGUS (tidak ada delay)
                 const mapped: Report[] = (reportData || []).map(
                     (r: AdverseReport) => {
                         const dept = departmentData?.find(
@@ -130,7 +126,7 @@ export default function AdminReportsPage() {
                             department_id: r.department_id,
                             user_id: r.user_id,
                             name: r.user_id
-                                ? userEmailMap[r.user_id] || "-"
+                                ? userNameMap[r.user_id] || "-"
                                 : "-",
                         };
                     }
