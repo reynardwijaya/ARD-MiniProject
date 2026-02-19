@@ -111,7 +111,7 @@ export default function LayoutUI({
                             </span>
                         </div>
                         <button
-                            className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-all duration-200 shadow-md"
+                            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition"
                             onClick={async () => {
                                 await supabase.auth.signOut();
                                 window.location.href = "/login";
