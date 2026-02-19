@@ -33,7 +33,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import SearchIcon from "@mui/icons-material/Search";
 import ClearIcon from "@mui/icons-material/Clear";
 
-import { supabase } from "./supabase";
+import { supabase } from "../lib/supabase";
 
 interface Report {
     id: string;
@@ -44,13 +44,13 @@ interface Report {
     department_name: string;
     location: string;
     department_id?: string;
-    user_email?: string; // Tambah untuk admin (email reporter)
-    user_id?: string; // Ganti name ke user_id (optional, hanya untuk admin)
+    user_name?: string; // Ubah dari user_email ke user_name untuk admin (nama reporter)
+    user_id?: string; // Optional, hanya untuk admin
 }
 
 interface ReportTableProps {
     data: Report[];
-    role?: string; // Tambah prop role untuk kondisikan admin/reporter
+    role?: string; // Prop role untuk kondisikan admin/reporter
 }
 
 export default function ReportTable({ data, role }: ReportTableProps) {
@@ -101,13 +101,13 @@ export default function ReportTable({ data, role }: ReportTableProps) {
         }
     }, [data]);
 
-    // Fetch email reporter untuk admin (hanya jika role admin dan ada user_id)
+    // Fetch nama reporter untuk admin (hanya jika role admin dan ada user_id)
     useEffect(() => {
         if (role === "admin") {
-            const fetchReporterEmails = async () => {
+            const fetchReporterNames = async () => {
                 const updatedData = await Promise.all(
                     tableData.map(async (report) => {
-                        if (report.user_email) return report; // Sudah ada, skip
+                        if (report.user_name) return report; // Sudah ada, skip
                         if (!report.user_id) {
                             console.log(`Report ${report.id}: no user_id`);
                             return report; // Tidak ada user_id, skip
@@ -117,7 +117,7 @@ export default function ReportTable({ data, role }: ReportTableProps) {
                         );
                         const { data: userData, error } = await supabase
                             .from("users")
-                            .select("name") // Ganti email ke name
+                            .select("name")
                             .eq("id", report.user_id)
                             .single();
                         if (error) {
@@ -125,21 +125,21 @@ export default function ReportTable({ data, role }: ReportTableProps) {
                                 `Error fetching name for user_id ${report.user_id}:`,
                                 error
                             );
-                            return { ...report, user_email: "-" };
+                            return { ...report, user_name: "-" };
                         }
                         console.log(
                             `Name for user_id ${report.user_id}: ${userData?.name}`
                         );
                         return {
                             ...report,
-                            user_email: userData?.name ?? "-", // Ganti email ke name
+                            user_name: userData?.name ?? "-",
                         };
                     })
                 );
                 setTableData(updatedData);
             };
             if (tableData.length > 0) {
-                fetchReporterEmails();
+                fetchReporterNames();
             }
         }
     }, [data, role]);
@@ -268,11 +268,11 @@ export default function ReportTable({ data, role }: ReportTableProps) {
             },
         ];
 
-        // Tambah kolom email untuk admin
+        // Tambah kolom nama reporter untuk admin (setelah title)
         if (role === "admin") {
             baseColumns.splice(1, 0, {
-                accessorKey: "user_email",
-                header: "Reporter Email",
+                accessorKey: "user_name",
+                header: "Reporter Name",
                 cell: ({ getValue }) => (
                     <Typography variant="body2">
                         {getValue() as string}
@@ -281,7 +281,7 @@ export default function ReportTable({ data, role }: ReportTableProps) {
             });
         }
 
-        // Tambah kolom actions untuk reporter
+        // Tambah kolom actions untuk reporter (setelah status)
         if (role === "reporter") {
             baseColumns.push({
                 id: "actions",

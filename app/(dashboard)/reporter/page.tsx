@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import LayoutUI from "../../lib/layoutUI"; // Update path jika sudah dipindah ke app/lib/LayoutUI.tsx
-import { supabase } from "@/app/lib/supabase"; // Update path jika perlu
-import ReportTable from "../../lib/ReportTable";
+import LayoutUI from "../../components/layoutUI";
+import { supabase } from "@/app/lib/supabase";
+import ReportTable from "../../components/ReportTable";
 
 interface Report {
     id: string;
@@ -79,13 +79,13 @@ export default function ReporterDashboard() {
 
             const { data: departmentData, error: deptError } = await supabase
                 .from("department")
-                .select("id, name"); // Sesuaikan select
+                .select("id, name");
 
             if (deptError) {
                 console.error(deptError);
             }
 
-            // gabungkan report + department by department_id
+            // Gabungkan report + department by department_id
             const mapped: Report[] = (reportData || []).map(
                 (r: AdverseReport) => {
                     const dept = departmentData?.find(
@@ -119,14 +119,15 @@ export default function ReporterDashboard() {
             pageTitle="Reporter Dashboard"
             userEmail={user?.email}
             userRole={user?.role}
-            role={userRole} // Tambah prop role
+            role={userRole}
         >
             {loading ? (
                 <p>Loading reports...</p>
             ) : reports.length === 0 ? (
                 <p>No reports found</p>
             ) : (
-                <ReportTable data={reports} />
+                // ✅ Tambahkan role="reporter" di sini
+                <ReportTable data={reports} role="reporter" />
             )}
         </LayoutUI>
     );

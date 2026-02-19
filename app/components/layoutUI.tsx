@@ -10,7 +10,7 @@ interface LayoutUIProps {
     pageTitle: string;
     userEmail?: string;
     userRole?: string;
-    role: "admin" | "reporter"; // Prop baru untuk kondisi
+    role: "admin" | "reporter";
 }
 
 export default function LayoutUI({
@@ -18,14 +18,12 @@ export default function LayoutUI({
     pageTitle,
     userEmail,
     userRole,
-    role, // Tambah ini
+    role,
 }: LayoutUIProps) {
     const pathname = usePathname();
 
-    // Kondisi untuk judul sidebar
     const panelTitle = role === "admin" ? "Admin Panel" : "Reporter Panel";
 
-    // Kondisi untuk link-link
     const navLinks =
         role === "admin"
             ? [
@@ -39,17 +37,21 @@ export default function LayoutUI({
 
     return (
         <div className="flex min-h-screen bg-gray-50">
-            {/* Sidebar */}
+            {/* Sidebar - Fixed, rounded, tidak scroll */}
             <aside
-                className="w-64 shadow-lg flex flex-col justify-between rounded-r-3xl"
+                className="w-64 h-screen fixed top-0 left-0 flex flex-col justify-between"
                 style={{
                     background:
                         "linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)",
+                    borderTopRightRadius: "24px",
+                    borderBottomRightRadius: "24px",
+                    boxShadow: "4px 0 20px rgba(0, 0, 0, 0.1)",
+                    zIndex: 50, // Tingkatkan z-index
                 }}
             >
                 <div className="p-6">
                     <h2 className="text-xl font-bold mb-8 text-white">
-                        {panelTitle} {/* Kondisi judul */}
+                        {panelTitle}
                     </h2>
                     <nav className="flex flex-col gap-2">
                         {navLinks.map((link) => (
@@ -87,9 +89,10 @@ export default function LayoutUI({
                 </div>
             </aside>
 
-            {/* Main Content - Tetap sama */}
-            <main className="flex-1 p-8 bg-white">
-                <div className="flex justify-between items-center mb-8">
+            {/* Wrapper untuk Top Bar + Content */}
+            <div className="flex-1 ml-64 min-h-screen flex flex-col">
+                {/* Top Bar - Sticky */}
+                <header className="sticky top-0 z-10 bg-white px-8 py-5 flex justify-between items-center border-b border-gray-100 shadow-sm">
                     <h1 className="text-3xl font-semibold text-gray-900">
                         {pageTitle}
                     </h1>
@@ -117,10 +120,13 @@ export default function LayoutUI({
                             Logout
                         </button>
                     </div>
-                </div>
+                </header>
 
-                {children}
-            </main>
+                {/* Content - Scrollable */}
+                <main className="flex-1 p-8 overflow-y-auto">
+                    <div className="mt-2">{children}</div>
+                </main>
+            </div>
         </div>
     );
 }

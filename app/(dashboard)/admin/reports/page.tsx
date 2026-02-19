@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/app/lib/supabase";
-import ReportTable from "@/app/lib/ReportTable";
+import ReportTable from "@/app/components/ReportTable";
 
 interface Report {
     id: string;
@@ -14,7 +14,7 @@ interface Report {
     location: string;
     department_id?: string;
     user_id?: string;
-    name: string; // Email user (atau "-" jika tidak ada)
+    name: string;
 }
 
 interface Department {
@@ -33,6 +33,11 @@ interface AdverseReport {
     user_id?: string;
 }
 
+interface UserData {
+    id: string;
+    email: string;
+}
+
 export default function AdminReportsPage() {
     const [user, setUser] = useState<{ email: string; role: string } | null>(
         null
@@ -41,7 +46,6 @@ export default function AdminReportsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Ambil user (untuk display, bukan filter)
     useEffect(() => {
         const fetchUser = async () => {
             try {
@@ -67,86 +71,54 @@ export default function AdminReportsPage() {
         fetchUser();
     }, []);
 
-    // Ambil report + department + user emails
     useEffect(() => {
         const fetchReports = async () => {
             setLoading(true);
             setError(null);
 
             try {
-                // Query reports
-                const { data: reportData, error: reportError } = await supabase
-                    .from("adverse_reports")
-                    .select(
-                        "id, title, severity, status, incident_date, department_id, location, user_id"
-                    );
+                // ✅ FETCH SEMUA DATA SECARA PARALEL
+                const [reportsRes, departmentsRes, usersRes] =
+                    await Promise.all([
+                        // 1. Query reports
+                        supabase
+                            .from("adverse_reports")
+                            .select(
+                                "id, title, severity, status, incident_date, department_id, location, user_id"
+                            ),
+                        // 2. Query departments
+                        supabase.from("department").select("id, name"),
+                        // 3. Query ALL users (ambil semua, lebih simple)
+                        supabase.from("users").select("id, email"),
+                    ]);
 
-                if (reportError) {
-                    console.error("Report error:", reportError);
+                const reportData = reportsRes.data;
+                const departmentData = departmentsRes.data;
+                const userData = usersRes.data;
+
+                if (reportsRes.error) {
+                    console.error("Report error:", reportsRes.error);
                     setError("Failed to load reports");
                     setReports([]);
                     setLoading(false);
                     return;
                 }
 
-                // Query departments
-                const { data: departmentData, error: deptError } =
-                    await supabase.from("department").select("id, name");
-
-                if (deptError) {
-                    console.error("Department error:", deptError);
-                    // Tidak fatal, lanjutkan dengan departmentData kosong
+                // ✅ BUILD MAP SEBELUM MAPPPING
+                const userEmailMap: { [key: string]: string } = {};
+                if (userData) {
+                    userData.forEach((u: UserData) => {
+                        userEmailMap[u.id] = u.email;
+                    });
                 }
 
-                // Ambil unique user_ids dari reportData
-                const userIds = [
-                    ...new Set(
-                        reportData?.map((r) => r.user_id).filter(Boolean)
-                    ),
-                ];
-
-                // Ambil email dari users berdasarkan userIds
-                let userEmailMap: { [key: string]: string } = {};
-                if (userIds.length > 0) {
-                    const { data: userData, error: userError } = await supabase
-                        .from("users")
-                        .select("id, email")
-                        .in("id", userIds);
-
-                    // Log untuk debugging (hapus di production jika tidak perlu)
-                    console.log("userError value:", userError);
-
-                    // Perbaikan: Hanya log jika ada error nyata (dengan message)
-                    if (userError && userError.message) {
-                        console.error("User error:", userError);
-                        // Tidak set error global, karena ini opsional
-                    } else if (userError && Object.keys(userError).length > 0) {
-                        // Fallback jika error adalah objek kosong tapi punya properti lain
-                        console.warn(
-                            "Unexpected user error format:",
-                            userError
-                        );
-                    } else {
-                        // Sukses: Build map
-                        userEmailMap =
-                            userData?.reduce(
-                                (map, u) => {
-                                    map[u.id] = u.email;
-                                    return map;
-                                },
-                                {} as { [key: string]: string }
-                            ) || {};
-                    }
-                } else {
-                    console.log("No user IDs to fetch emails for.");
-                }
-
-                // Gabungkan report + department + user email
+                // ✅ MAP SEMUA DATA SEKALIGUS (tidak ada delay)
                 const mapped: Report[] = (reportData || []).map(
                     (r: AdverseReport) => {
                         const dept = departmentData?.find(
                             (d: Department) => d.id === r.department_id
                         );
+
                         return {
                             id: r.id,
                             title: r.title,
@@ -159,7 +131,7 @@ export default function AdminReportsPage() {
                             user_id: r.user_id,
                             name: r.user_id
                                 ? userEmailMap[r.user_id] || "-"
-                                : "-", // Ambil email dari map
+                                : "-",
                         };
                     }
                 );
@@ -174,7 +146,7 @@ export default function AdminReportsPage() {
         };
 
         fetchReports();
-    }, []); // Dependency array kosong: hanya run sekali saat mount
+    }, []);
 
     if (loading) {
         return <p>Loading reports...</p>;

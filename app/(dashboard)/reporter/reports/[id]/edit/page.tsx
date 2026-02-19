@@ -1,30 +1,21 @@
+// app/reporter/reports/[id]/edit/page.tsx
+
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import {
-    TextField,
-    Button,
-    MenuItem,
-    Snackbar,
-    Alert,
-    Divider,
-    Box,
-    Typography,
-    Paper,
-    Fade,
-} from "@mui/material";
-import { supabase } from "../../../../../lib/supabase";
-import LayoutUI from "../../../../../lib/layoutUI";
+import { supabase } from "@/app/lib/supabase";
+import LayoutUI from "@/app/components/layoutUI";
+import ReportFormUI from "@/app/components/ReportForm";
 
-interface ReportData {
+interface ReportFormData {
     title: string;
     description: string;
     incident_date: string;
     location: string;
     severity: string;
     department_id: string;
-    status: string;
+    tags: string[];
 }
 
 interface Department {
@@ -40,21 +31,38 @@ interface ReportAttachment {
     created_at: string;
 }
 
+const TAG_OPTIONS: string[] = [];
+
 export default function EditReportPage() {
     const params = useParams<{ id: string }>();
-    const id = params.id;
-
+    const reportId = params.id;
     const router = useRouter();
 
-    const [formData, setFormData] = useState<ReportData | null>(null);
-    const [departments, setDepartments] = useState<Department[]>([]);
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [attachments, setAttachments] = useState<ReportAttachment[]>([]);
-    const [previewUrls, setPreviewUrls] = useState<string[]>([]);
     const [user, setUser] = useState<{ email: string; role: string } | null>(
         null
-    ); // Tambah state user
+    );
+    const [departments, setDepartments] = useState<Department[]>([]);
+    const [attachments, setAttachments] = useState<ReportAttachment[]>([]);
+    const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
+
+    // Original data for comparison
+    const [originalData, setOriginalData] = useState<ReportFormData | null>(
+        null
+    );
+
+    const [formData, setFormData] = useState<ReportFormData>({
+        title: "",
+        description: "",
+        incident_date: "",
+        location: "",
+        severity: "low",
+        department_id: "",
+        tags: [],
+    });
 
     const [snackbar, setSnackbar] = useState({
         open: false,
@@ -62,90 +70,113 @@ export default function EditReportPage() {
         severity: "success" as "success" | "error",
     });
 
+    // Helper: get file path
+    const getFilePath = (fileUrl: string): string => {
+        if (!fileUrl.startsWith("http")) return fileUrl;
+        try {
+            const url = new URL(fileUrl);
+            return url.pathname.replace(
+                /^\/storage\/v1\/object\/sign\/report-attachments\//,
+                ""
+            );
+        } catch {
+            return fileUrl.includes("/")
+                ? fileUrl.split("/").pop() || fileUrl
+                : fileUrl;
+        }
+    };
+
+    // Fetch user
     useEffect(() => {
-        if (!id) return;
+        const fetchUser = async () => {
+            const {
+                data: { user: authUser },
+            } = await supabase.auth.getUser();
+            if (authUser) {
+                const { data: userData } = await supabase
+                    .from("users")
+                    .select("role")
+                    .eq("id", authUser.id)
+                    .single();
+                if (userData) {
+                    setUser({ email: authUser.email!, role: userData.role });
+                }
+            }
+        };
+        fetchUser();
+    }, []);
+
+    // Fetch report data
+    useEffect(() => {
+        if (!reportId) return;
 
         const fetchData = async () => {
             setLoading(true);
 
-            // Tambah fetch user
-            const { data: userData } = await supabase.auth.getUser();
-            if (userData.user) {
-                const { data: userRoleData, error: userError } = await supabase
-                    .from("users")
-                    .select("role")
-                    .eq("id", userData.user.id)
-                    .single();
-                if (!userError && userRoleData) {
-                    setUser({
-                        email: userData.user.email!,
-                        role: userRoleData.role,
-                    });
-                }
-            }
-
-            const { data, error } = await supabase
+            // Fetch report
+            const { data: reportData, error } = await supabase
                 .from("adverse_reports")
                 .select("*")
-                .eq("id", id)
+                .eq("id", reportId)
                 .single();
 
-            if (error || !data) {
+            if (error || !reportData) {
                 router.push("/reporter");
                 return;
             }
 
-            if (!["draft", "rejected"].includes(data.status)) {
+            // Check if editable
+            if (!["draft", "rejected"].includes(reportData.status)) {
                 router.push("/reporter");
                 return;
             }
 
-            const formattedData: ReportData = {
-                title: data.title,
-                description: data.description,
-                incident_date: data.incident_date,
-                location: data.location || "",
-                severity: data.severity,
-                department_id: data.department_id,
-                status: data.status,
+            const formDataObj = {
+                title: reportData.title,
+                description: reportData.description,
+                incident_date: reportData.incident_date,
+                location: reportData.location || "",
+                severity: reportData.severity,
+                department_id: reportData.department_id,
+                tags: [],
             };
 
-            setFormData(formattedData);
+            setFormData(formDataObj);
+            setOriginalData(formDataObj);
 
+            // Fetch attachments
             const { data: attachmentData } = await supabase
                 .from("report_attachments")
                 .select("*")
-                .eq("report_id", id);
-
+                .eq("report_id", reportId);
             setAttachments(attachmentData || []);
 
+            // Fetch departments
             const { data: deptData } = await supabase
                 .from("department")
                 .select("*");
-
             setDepartments(deptData || []);
+
             setLoading(false);
         };
 
         fetchData();
-    }, [id, router]);
+    }, [reportId, router]);
 
-    // Tentukan role berdasarkan user
-    const userRole = user?.role === "admin" ? "admin" : "reporter";
-
+    // Generate preview URLs for existing attachments
     useEffect(() => {
-        const generatePreview = async () => {
+        const generatePreviews = async () => {
             if (attachments.length === 0) {
                 setPreviewUrls([]);
                 return;
             }
 
             const signedUrls = await Promise.all(
-                attachments.map(async (file) => {
+                attachments.map(async (file: ReportAttachment) => {
+                    const filePath = getFilePath(file.file_url);
                     const { data } = await supabase.storage
                         .from("report-attachments")
-                        .createSignedUrl(file.file_url, 3600);
-
+                        .createSignedUrl(filePath, 3600);
                     return data?.signedUrl ?? null;
                 })
             );
@@ -153,477 +184,206 @@ export default function EditReportPage() {
             setPreviewUrls(signedUrls.filter((url): url is string => !!url));
         };
 
-        generatePreview();
+        generatePreviews();
     }, [attachments]);
 
-    useEffect(() => {
-        return () => {
-            previewUrls.forEach((url) => URL.revokeObjectURL(url));
-        };
-    }, [previewUrls]);
-
-    const handleChange = (field: keyof ReportData, value: string) => {
-        if (!formData) return;
-        setFormData({ ...formData, [field]: value });
+    const handleChange = (field: keyof ReportFormData, value: string) => {
+        setFormData((prev) => ({ ...prev, [field]: value }));
     };
 
-    const handleUpdate = async () => {
-        if (!formData) return;
+    const handleTagsChange = (tags: string[]) => {
+        // Tags disabled in edit mode - no action
+    };
 
-        // Update report dulu
-        const { error: updateError } = await supabase
-            .from("adverse_reports")
-            .update({
-                title: formData.title,
-                description: formData.description,
-                incident_date: formData.incident_date,
-                location: formData.location,
-                severity: formData.severity,
-                department_id: formData.department_id,
-                updated_at: new Date(),
-                status: "draft",
-            })
-            .eq("id", id);
-
-        if (updateError) {
-            console.error("UPDATE ERROR:", updateError);
-            setSnackbar({
-                open: true,
-                message: updateError.message,
-                severity: "error",
-            });
-            return;
+    const handleFileChange = (file: File | null) => {
+        setSelectedFile(file);
+        if (file) {
+            setLocalPreviewUrl(URL.createObjectURL(file));
+        } else {
+            setLocalPreviewUrl(null);
         }
+    };
 
-        // file baru
-        if (selectedFile) {
-            // Hapus attc lama (kalo ada)
-            if (attachments.length > 0) {
-                // Hapus file dari storage
-                await supabase.storage
+    const handleRemoveFile = () => {
+        if (localPreviewUrl) {
+            URL.revokeObjectURL(localPreviewUrl);
+        }
+        setSelectedFile(null);
+        setLocalPreviewUrl(null);
+    };
+
+    // Check if there are changes from original data
+    const hasChanges = (): boolean => {
+        if (!originalData) return false;
+
+        const isDataChanged =
+            formData.title !== originalData.title ||
+            formData.description !== originalData.description ||
+            formData.incident_date !== originalData.incident_date ||
+            formData.location !== originalData.location ||
+            formData.severity !== originalData.severity ||
+            formData.department_id !== originalData.department_id;
+
+        // New file selected
+        const hasNewFile = selectedFile !== null;
+
+        return isDataChanged || hasNewFile;
+    };
+
+    // Check if required fields are filled (for submit) - HARUS ADA PERUBAHAN
+    const isFormValid = (): boolean => {
+        return (
+            hasChanges() &&
+            formData.title.trim() !== "" &&
+            formData.description.trim() !== "" &&
+            formData.incident_date !== "" &&
+            formData.location.trim() !== "" &&
+            formData.department_id !== "" &&
+            (selectedFile !== null || attachments.length > 0)
+        );
+    };
+
+    // Check if only required fields are filled (for draft) - HARUS ADA PERUBAHAN
+    const isDraftValid = (): boolean => {
+        return (
+            hasChanges() &&
+            formData.title.trim() !== "" &&
+            formData.incident_date !== "" &&
+            formData.department_id !== ""
+        );
+    };
+
+    const handleSubmit = async (status: "draft" | "submitted") => {
+        if (!reportId) return;
+
+        setSubmitting(true);
+
+        try {
+            // Update report
+            const { error: updateError } = await supabase
+                .from("adverse_reports")
+                .update({
+                    title: formData.title,
+                    description: formData.description,
+                    incident_date: formData.incident_date,
+                    location: formData.location,
+                    severity: formData.severity,
+                    department_id: formData.department_id,
+                    updated_at: new Date(),
+                    status,
+                })
+                .eq("id", reportId);
+
+            if (updateError) throw updateError;
+
+            // Handle file replacement
+            if (selectedFile) {
+                // Delete old attachments
+                if (attachments.length > 0) {
+                    const filePaths = attachments
+                        .map((f: ReportAttachment) => getFilePath(f.file_url))
+                        .filter((path: string): path is string => !!path);
+
+                    await supabase.storage
+                        .from("report-attachments")
+                        .remove(filePaths);
+                    await supabase
+                        .from("report_attachments")
+                        .delete()
+                        .eq("report_id", reportId);
+                }
+
+                // Upload new file
+                const fileExt = selectedFile.name.split(".").pop();
+                const fileName = `${Date.now()}.${fileExt}`;
+                const filePath = `${reportId}/${fileName}`;
+
+                const { error: uploadError } = await supabase.storage
                     .from("report-attachments")
-                    .remove(attachments.map((file) => file.file_url));
+                    .upload(filePath, selectedFile);
 
-                // Hapus record dari db
-                await supabase
-                    .from("report_attachments")
-                    .delete()
-                    .eq("report_id", id);
-            }
+                if (uploadError) throw uploadError;
 
-            //  Upload file baru
-            const fileExt = selectedFile.name.split(".").pop();
-            const fileName = `${Date.now()}.${fileExt}`;
-            const filePath = `${id}/${fileName}`;
-
-            const { error: uploadError } = await supabase.storage
-                .from("report-attachments")
-                .upload(filePath, selectedFile);
-
-            if (uploadError) {
-                setSnackbar({
-                    open: true,
-                    message: uploadError.message,
-                    severity: "error",
-                });
-                return;
-            }
-
-            // Insert record baru
-            const { error: insertError } = await supabase
-                .from("report_attachments")
-                .insert({
-                    report_id: id,
-                    file_name: fileName,
+                await supabase.from("report_attachments").insert({
+                    report_id: reportId,
+                    file_name: selectedFile.name,
                     file_url: filePath,
                 });
-
-            if (insertError) {
-                setSnackbar({
-                    open: true,
-                    message: insertError.message,
-                    severity: "error",
-                });
-                return;
             }
 
-            // Refresh attachment state
-            const { data: newAttachment } = await supabase
-                .from("report_attachments")
-                .select("*")
-                .eq("report_id", id)
-                .order("created_at", { ascending: false });
+            setSnackbar({
+                open: true,
+                message:
+                    status === "draft"
+                        ? "Report saved as draft!"
+                        : "Report submitted!",
+                severity: "success",
+            });
 
-            setAttachments(newAttachment || []);
-            setSelectedFile(null);
+            setTimeout(() => router.push("/reporter"), 1500);
+        } catch (error: unknown) {
+            const errorMessage =
+                error instanceof Error ? error.message : "An error occurred";
+            console.error("Error:", errorMessage);
+            setSnackbar({
+                open: true,
+                message: errorMessage,
+                severity: "error",
+            });
+        } finally {
+            setSubmitting(false);
         }
-
-        setSnackbar({
-            open: true,
-            message: "Report berhasil diupdate",
-            severity: "success",
-        });
-
-        setTimeout(() => {
-            router.push("/reporter");
-        }, 1500);
     };
 
-    if (loading || !formData)
+    const handleCancel = () => {
+        router.push("/reporter");
+    };
+
+    const userRole = user?.role === "admin" ? "admin" : "reporter";
+
+    if (loading) {
         return (
             <LayoutUI
                 pageTitle="Loading..."
-                userEmail={user?.email}
-                userRole={user?.role}
-                role={userRole} // Tambah prop role
+                userEmail={undefined}
+                userRole={undefined}
+                role="reporter"
             >
                 Loading...
             </LayoutUI>
         );
+    }
 
     return (
         <LayoutUI
             pageTitle="Edit Report"
             userEmail={user?.email}
             userRole={user?.role}
-            role={userRole} // Tambah prop role
+            role={userRole}
         >
-            <Fade in={true} timeout={600}>
-                <Box
-                    sx={{
-                        flex: 1,
-                        bgcolor: "#fafafa",
-                        display: "flex",
-                        justifyContent: "center",
-                        p: 4,
-                        minHeight: "100vh",
-                    }}
-                >
-                    <Paper
-                        elevation={1}
-                        sx={{
-                            width: "100%",
-                            maxWidth: 800,
-                            p: 6,
-                            borderRadius: 3,
-                            bgcolor: "white",
-                        }}
-                    >
-                        <Box sx={{ mb: 4 }}>
-                            <Typography
-                                variant="h4"
-                                component="h1"
-                                sx={{ fontWeight: 600, color: "#333" }}
-                            >
-                                Edit Adverse Report
-                            </Typography>
-                            <Typography
-                                variant="body2"
-                                sx={{ color: "#666", mt: 1 }}
-                            >
-                                Only draft & rejected reports can be edited
-                            </Typography>
-                        </Box>
-
-                        <Divider sx={{ mb: 4 }} />
-
-                        <Box
-                            sx={{
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: 3,
-                            }}
-                        >
-                            <TextField
-                                label="Title"
-                                value={formData.title}
-                                onChange={(e) =>
-                                    handleChange("title", e.target.value)
-                                }
-                                fullWidth
-                                variant="outlined"
-                                sx={{
-                                    "& .MuiOutlinedInput-root": {
-                                        borderRadius: 2,
-                                    },
-                                }}
-                            />
-
-                            <TextField
-                                label="Description"
-                                multiline
-                                rows={4}
-                                value={formData.description}
-                                onChange={(e) =>
-                                    handleChange("description", e.target.value)
-                                }
-                                fullWidth
-                                variant="outlined"
-                                sx={{
-                                    "& .MuiOutlinedInput-root": {
-                                        borderRadius: 2,
-                                    },
-                                }}
-                            />
-
-                            <Box
-                                sx={{
-                                    display: "grid",
-                                    gridTemplateColumns: {
-                                        xs: "1fr",
-                                        md: "1fr 1fr",
-                                    },
-                                    gap: 3,
-                                }}
-                            >
-                                <TextField
-                                    type="date"
-                                    label="Incident Date"
-                                    InputLabelProps={{ shrink: true }}
-                                    value={formData.incident_date}
-                                    onChange={(e) =>
-                                        handleChange(
-                                            "incident_date",
-                                            e.target.value
-                                        )
-                                    }
-                                    fullWidth
-                                    variant="outlined"
-                                    sx={{
-                                        "& .MuiOutlinedInput-root": {
-                                            borderRadius: 2,
-                                        },
-                                    }}
-                                />
-
-                                <TextField
-                                    label="Location"
-                                    value={formData.location}
-                                    onChange={(e) =>
-                                        handleChange("location", e.target.value)
-                                    }
-                                    fullWidth
-                                    variant="outlined"
-                                    sx={{
-                                        "& .MuiOutlinedInput-root": {
-                                            borderRadius: 2,
-                                        },
-                                    }}
-                                />
-                            </Box>
-
-                            <Box
-                                sx={{
-                                    display: "grid",
-                                    gridTemplateColumns: {
-                                        xs: "1fr",
-                                        md: "1fr 1fr",
-                                    },
-                                    gap: 3,
-                                }}
-                            >
-                                <TextField
-                                    select
-                                    label="Severity"
-                                    value={formData.severity}
-                                    onChange={(e) =>
-                                        handleChange("severity", e.target.value)
-                                    }
-                                    fullWidth
-                                    variant="outlined"
-                                    sx={{
-                                        "& .MuiOutlinedInput-root": {
-                                            borderRadius: 2,
-                                        },
-                                    }}
-                                >
-                                    <MenuItem value="low">Low</MenuItem>
-                                    <MenuItem value="medium">Medium</MenuItem>
-                                    <MenuItem value="high">High</MenuItem>
-                                </TextField>
-
-                                <TextField
-                                    select
-                                    label="Department"
-                                    value={formData.department_id}
-                                    onChange={(e) =>
-                                        handleChange(
-                                            "department_id",
-                                            e.target.value
-                                        )
-                                    }
-                                    fullWidth
-                                    variant="outlined"
-                                    sx={{
-                                        "& .MuiOutlinedInput-root": {
-                                            borderRadius: 2,
-                                        },
-                                    }}
-                                >
-                                    {departments.map((dep) => (
-                                        <MenuItem key={dep.id} value={dep.id}>
-                                            {dep.name}
-                                        </MenuItem>
-                                    ))}
-                                </TextField>
-                            </Box>
-
-                            {/* ATTACHMENT SECTION */}
-                            <Box
-                                sx={{
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: 2,
-                                }}
-                            >
-                                <Typography
-                                    variant="body2"
-                                    sx={{ fontWeight: 500, color: "#333" }}
-                                >
-                                    Attachment Preview
-                                </Typography>
-
-                                {previewUrls.length > 0 ? (
-                                    <Box
-                                        sx={{
-                                            display: "flex",
-                                            flexWrap: "wrap",
-                                            gap: 2,
-                                        }}
-                                    >
-                                        {previewUrls.map((url, index) => (
-                                            <Box
-                                                key={index}
-                                                sx={{
-                                                    width: 128,
-                                                    height: 128,
-                                                    borderRadius: 2,
-                                                    border: "1px solid #e0e0e0",
-                                                    overflow: "hidden",
-                                                    cursor: "pointer",
-                                                    "&:hover": {
-                                                        borderColor: "#ccc",
-                                                    },
-                                                }}
-                                                onClick={() =>
-                                                    window.open(url, "_blank")
-                                                }
-                                            >
-                                                <img
-                                                    src={url}
-                                                    alt="attachment"
-                                                    style={{
-                                                        width: "100%",
-                                                        height: "100%",
-                                                        objectFit: "cover",
-                                                    }}
-                                                />
-                                            </Box>
-                                        ))}
-                                    </Box>
-                                ) : (
-                                    <Typography
-                                        variant="body2"
-                                        sx={{ color: "#999" }}
-                                    >
-                                        No attachment uploaded
-                                    </Typography>
-                                )}
-
-                                <Divider />
-
-                                <Box>
-                                    <input
-                                        type="file"
-                                        accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls"
-                                        onChange={(e) => {
-                                            const file = e.target.files?.[0];
-                                            if (file) {
-                                                setSelectedFile(file);
-                                                const localUrl =
-                                                    URL.createObjectURL(file);
-                                                setPreviewUrls([localUrl]);
-                                            }
-                                        }}
-                                        style={{ display: "none" }}
-                                        id="file-upload"
-                                    />
-                                    <label htmlFor="file-upload">
-                                        <Button
-                                            variant="outlined"
-                                            component="span"
-                                            sx={{
-                                                borderRadius: 2,
-                                                textTransform: "none",
-                                                borderColor: "#ccc",
-                                                color: "#666",
-                                                "&:hover": {
-                                                    borderColor: "#999",
-                                                    bgcolor: "#f9f9f9",
-                                                },
-                                            }}
-                                        >
-                                            Choose New File
-                                        </Button>
-                                    </label>
-                                </Box>
-                            </Box>
-
-                            <Box
-                                sx={{
-                                    display: "flex",
-                                    justifyContent: "flex-end",
-                                    gap: 2,
-                                    pt: 2,
-                                }}
-                            >
-                                <Button
-                                    variant="outlined"
-                                    onClick={() => router.push("/reporter")}
-                                    sx={{
-                                        borderRadius: 2,
-                                        textTransform: "none",
-                                        px: 3,
-                                        "&:hover": { bgcolor: "#f5f5f5" },
-                                    }}
-                                >
-                                    Cancel
-                                </Button>
-
-                                <Button
-                                    variant="contained"
-                                    onClick={handleUpdate}
-                                    sx={{
-                                        borderRadius: 2,
-                                        textTransform: "none",
-                                        px: 3,
-                                        bgcolor: "#1976d2",
-                                        "&:hover": { bgcolor: "#1565c0" },
-                                    }}
-                                >
-                                    Save Changes
-                                </Button>
-                            </Box>
-                        </Box>
-                    </Paper>
-
-                    <Snackbar
-                        open={snackbar.open}
-                        autoHideDuration={4000}
-                        onClose={() =>
-                            setSnackbar({ ...snackbar, open: false })
-                        }
-                        anchorOrigin={{
-                            vertical: "bottom",
-                            horizontal: "right",
-                        }}
-                    >
-                        <Alert severity={snackbar.severity} variant="filled">
-                            {snackbar.message}
-                        </Alert>
-                    </Snackbar>
-                </Box>
-            </Fade>
+            <ReportFormUI
+                mode="edit"
+                formData={formData}
+                departments={departments}
+                attachments={attachments}
+                previewUrls={previewUrls}
+                selectedFile={selectedFile}
+                localPreviewUrl={localPreviewUrl}
+                loading={submitting}
+                onChange={handleChange}
+                onTagsChange={handleTagsChange}
+                onFileChange={handleFileChange}
+                onRemoveFile={handleRemoveFile}
+                onSubmit={handleSubmit}
+                onCancel={handleCancel}
+                snackbar={snackbar}
+                onSnackbarClose={() =>
+                    setSnackbar({ ...snackbar, open: false })
+                }
+                tagOptions={TAG_OPTIONS}
+                isFormValid={isFormValid}
+                isDraftValid={isDraftValid}
+            />
         </LayoutUI>
     );
 }
