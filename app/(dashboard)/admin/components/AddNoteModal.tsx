@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
     Dialog,
     DialogTitle,
@@ -9,8 +9,6 @@ import {
     Button,
     TextField,
     IconButton,
-    Box,
-    Typography,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { supabase } from "@/app/lib/supabase";
@@ -33,6 +31,28 @@ export default function AddNoteModal({
     const [note, setNote] = useState("");
     const [loading, setLoading] = useState(false);
 
+    useEffect(() => {
+        const fetchExistingNote = async () => {
+            if (!reportId) return;
+
+            const { data } = await supabase
+                .from("report_note")
+                .select("note")
+                .eq("report_id", reportId)
+                .maybeSingle();
+
+            if (data) {
+                setNote(data.note);
+            } else {
+                setNote(""); // reset kalau tidak ada
+            }
+        };
+
+        if (isOpen) {
+            fetchExistingNote();
+        }
+    }, [isOpen, reportId]);
+
     const handleClose = () => {
         setNote("");
         onClose();
@@ -47,39 +67,33 @@ export default function AddNoteModal({
             data: { user },
         } = await supabase.auth.getUser();
 
-        const { error } = await supabase.rpc("add_report_note", {
-            p_report_id: reportId,
-            p_admin_id: user?.id,
-            p_note: note.trim(),
-        });
+        const { error } = await supabase.from("report_note").upsert(
+            {
+                report_id: reportId,
+                admin_id: user?.id,
+                note: note.trim(),
+                updated_at: new Date().toISOString(),
+            },
+            {
+                onConflict: "report_id",
+            }
+        );
 
         if (error) {
-            console.error("Error adding note:", error);
-            alert("Failed to add note");
+            alert("Failed to save note");
             setLoading(false);
             return;
         }
 
-        // 🔥 AUTO UPDATE STATUS JIKA ADA nextStatus
         if (nextStatus) {
-            const { error: statusError } = await supabase.rpc(
-                "update_report_status",
-                {
-                    p_report_id: reportId,
-                    p_status: nextStatus,
-                }
-            );
-
-            if (statusError) {
-                console.error("Error updating status:", statusError);
-                alert("Note saved but failed to update status");
-                setLoading(false);
-                return; // ⬅ stop supaya tidak close modal
-            }
+            await supabase.rpc("update_report_status", {
+                p_report_id: reportId,
+                p_status: nextStatus,
+            });
         }
 
         setLoading(false);
-        setNote("");
+        handleClose();
         onSuccess();
     };
 

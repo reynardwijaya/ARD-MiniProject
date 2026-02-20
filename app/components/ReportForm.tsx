@@ -192,12 +192,16 @@ export default function ReportFormUI({
                     >
                         {/* Title */}
                         <TextField
-                            label="Title"
+                            label={
+                                <span>
+                                    Title{" "}
+                                    <span style={{ color: "#e53935" }}>*</span>
+                                </span>
+                            }
                             value={formData.title}
                             onChange={(e) => onChange("title", e.target.value)}
                             fullWidth
                             variant="outlined"
-                            required
                             sx={{
                                 "& .MuiOutlinedInput-root": { borderRadius: 2 },
                             }}
@@ -205,7 +209,12 @@ export default function ReportFormUI({
 
                         {/* Description */}
                         <TextField
-                            label="Description"
+                            label={
+                                <span>
+                                    Description{" "}
+                                    <span style={{ color: "#e53935" }}>*</span>
+                                </span>
+                            }
                             multiline
                             rows={4}
                             value={formData.description}
@@ -214,7 +223,6 @@ export default function ReportFormUI({
                             }
                             fullWidth
                             variant="outlined"
-                            required
                             sx={{
                                 "& .MuiOutlinedInput-root": { borderRadius: 2 },
                             }}
@@ -233,7 +241,14 @@ export default function ReportFormUI({
                         >
                             <TextField
                                 type="date"
-                                label="Incident Date"
+                                label={
+                                    <span>
+                                        Incident Date{" "}
+                                        <span style={{ color: "#e53935" }}>
+                                            *
+                                        </span>
+                                    </span>
+                                }
                                 InputLabelProps={{ shrink: true }}
                                 value={formData.incident_date}
                                 onChange={(e) =>
@@ -241,7 +256,6 @@ export default function ReportFormUI({
                                 }
                                 fullWidth
                                 variant="outlined"
-                                required
                                 sx={{
                                     "& .MuiOutlinedInput-root": {
                                         borderRadius: 2,
@@ -249,14 +263,20 @@ export default function ReportFormUI({
                                 }}
                             />
                             <TextField
-                                label="Location"
+                                label={
+                                    <span>
+                                        Location{" "}
+                                        <span style={{ color: "#e53935" }}>
+                                            *
+                                        </span>
+                                    </span>
+                                }
                                 value={formData.location}
                                 onChange={(e) =>
                                     onChange("location", e.target.value)
                                 }
                                 fullWidth
                                 variant="outlined"
-                                required
                                 sx={{
                                     "& .MuiOutlinedInput-root": {
                                         borderRadius: 2,
@@ -278,7 +298,14 @@ export default function ReportFormUI({
                         >
                             <TextField
                                 select
-                                label="Severity"
+                                label={
+                                    <span>
+                                        Severity{" "}
+                                        <span style={{ color: "#e53935" }}>
+                                            *
+                                        </span>
+                                    </span>
+                                }
                                 value={formData.severity}
                                 onChange={(e) =>
                                     onChange("severity", e.target.value)
@@ -295,16 +322,23 @@ export default function ReportFormUI({
                                 <MenuItem value="medium">Medium</MenuItem>
                                 <MenuItem value="high">High</MenuItem>
                             </TextField>
+
                             <TextField
                                 select
-                                label="Department"
+                                label={
+                                    <span>
+                                        Department{" "}
+                                        <span style={{ color: "#e53935" }}>
+                                            *
+                                        </span>
+                                    </span>
+                                }
                                 value={formData.department_id}
                                 onChange={(e) =>
                                     onChange("department_id", e.target.value)
                                 }
                                 fullWidth
                                 variant="outlined"
-                                required
                                 sx={{
                                     "& .MuiOutlinedInput-root": {
                                         borderRadius: 2,

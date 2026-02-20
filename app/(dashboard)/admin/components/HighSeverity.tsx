@@ -104,7 +104,7 @@ export default function HighSeverityPending() {
                     </div>
                 </div>
 
-                <div className="text-sm font-semibold text-red-500">
+                <div className="text-3xl font-semibold text-red-500">
                     {reports.length}
                 </div>
             </div>
@@ -113,7 +113,7 @@ export default function HighSeverityPending() {
             <div className="p-5">
                 {reports.length === 0 ? (
                     <div className="py-10 text-center text-gray-500">
-                        No high severity reports pending ✓
+                        No high severity reports pending
                     </div>
                 ) : (
                     <div className="space-y-3">

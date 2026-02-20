@@ -52,6 +52,10 @@ interface InboxReport {
     created_at: string;
 }
 
+interface InboxAdminProps {
+    onDataChanged: () => void;
+}
+
 function formatDate(dateString: string): string {
     const date = new Date(dateString);
     return date.toLocaleDateString("id-ID", {
@@ -103,7 +107,7 @@ function getStatusColor(status: string): string {
     }
 }
 
-export default function InboxAdmin() {
+export default function InboxAdmin({ onDataChanged }: InboxAdminProps) {
     const router = useRouter();
     const [data, setData] = useState<InboxReport[]>([]);
     const [loading, setLoading] = useState(true);
@@ -678,7 +682,7 @@ export default function InboxAdmin() {
             <AddNoteModal
                 isOpen={noteModal.isOpen}
                 reportId={noteModal.reportId}
-                nextStatus={noteModal.nextStatus} // ⬅ TAMBAH INI
+                nextStatus={noteModal.nextStatus}
                 onClose={() =>
                     setNoteModal({
                         isOpen: false,
@@ -686,13 +690,23 @@ export default function InboxAdmin() {
                         nextStatus: null,
                     })
                 }
-                onSuccess={() =>
+                onSuccess={async () => {
+                    if (noteModal.reportId && noteModal.nextStatus) {
+                        await handleStatusChange(
+                            noteModal.reportId,
+                            noteModal.nextStatus
+                        );
+                    }
+
                     setNoteModal({
                         isOpen: false,
                         reportId: null,
                         nextStatus: null,
-                    })
-                }
+                    });
+
+                    await fetchData(); // refresh inbox
+                    onDataChanged(); // 🔥 refresh dashboard
+                }}
             />
 
             {/* Confirm Status Change Modal */}
@@ -791,15 +805,18 @@ export default function InboxAdmin() {
 
                     <Button
                         variant="contained"
-                        onClick={() => {
+                        onClick={async () => {
                             if (
                                 confirmModal.reportId &&
                                 confirmModal.newStatus
                             ) {
-                                handleStatusChange(
+                                await handleStatusChange(
                                     confirmModal.reportId,
                                     confirmModal.newStatus
                                 );
+
+                                await fetchData(); // refresh inbox
+                                onDataChanged(); // 🔥 refresh dashboard
                             }
 
                             setConfirmModal({
