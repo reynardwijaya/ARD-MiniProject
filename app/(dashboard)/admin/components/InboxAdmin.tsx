@@ -724,16 +724,21 @@ export default function InboxAdmin({ onDataChanged }: InboxAdminProps) {
                 PaperProps={{
                     sx: {
                         borderRadius: 3,
-                        boxShadow: "0 8px 40px rgba(0,0,0,0.12)",
+                        boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
+                        p: 3,
                     },
                 }}
             >
+                {/* Title */}
                 <DialogTitle
                     sx={{
-                        fontWeight: 600,
+                        fontWeight: 700,
+                        fontSize: 20,
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
+                        color: "#222",
+                        pb: 1.5,
                     }}
                 >
                     Confirm Status Change
@@ -746,13 +751,18 @@ export default function InboxAdmin({ onDataChanged }: InboxAdminProps) {
                                 newStatus: null,
                             })
                         }
+                        sx={{
+                            bgcolor: "#f0f0f0",
+                            "&:hover": { bgcolor: "#e0e0e0" },
+                        }}
                     >
                         <CloseIcon fontSize="small" />
                     </IconButton>
                 </DialogTitle>
 
-                <DialogContent>
-                    <Typography sx={{ mb: 1 }}>
+                {/* Content */}
+                <DialogContent sx={{ pt: 1 }}>
+                    <Typography sx={{ mb: 1.5, fontSize: 16, color: "#333" }}>
                         You are about to change status to{" "}
                         <strong style={{ textTransform: "capitalize" }}>
                             {confirmModal.newStatus}
@@ -760,13 +770,17 @@ export default function InboxAdmin({ onDataChanged }: InboxAdminProps) {
                         .
                     </Typography>
 
-                    <Typography variant="body2" sx={{ color: "#666" }}>
+                    <Typography
+                        variant="body2"
+                        sx={{ color: "#666", fontSize: 14 }}
+                    >
                         Would you like to add an internal note before
                         continuing?
                     </Typography>
                 </DialogContent>
 
-                <DialogActions sx={{ p: 3, gap: 1 }}>
+                {/* Actions */}
+                <DialogActions sx={{ pt: 2, gap: 1 }}>
                     <Button
                         onClick={() =>
                             setConfirmModal({
@@ -775,6 +789,11 @@ export default function InboxAdmin({ onDataChanged }: InboxAdminProps) {
                                 newStatus: null,
                             })
                         }
+                        sx={{
+                            textTransform: "none",
+                            color: "#555",
+                            "&:hover": { bgcolor: "#f5f5f5" },
+                        }}
                     >
                         Cancel
                     </Button>
@@ -794,10 +813,20 @@ export default function InboxAdmin({ onDataChanged }: InboxAdminProps) {
                             if (reportId) {
                                 setNoteModal({
                                     isOpen: true,
-                                    reportId: reportId,
-                                    nextStatus: nextStatus, // ⬅ kirim status tujuan
+                                    reportId,
+                                    nextStatus,
                                 });
                             }
+                        }}
+                        sx={{
+                            textTransform: "none",
+                            borderRadius: 2,
+                            borderColor: "#888",
+                            color: "#555",
+                            "&:hover": {
+                                borderColor: "#555",
+                                bgcolor: "#fafafa",
+                            },
                         }}
                     >
                         Add Note
@@ -814,9 +843,8 @@ export default function InboxAdmin({ onDataChanged }: InboxAdminProps) {
                                     confirmModal.reportId,
                                     confirmModal.newStatus
                                 );
-
-                                await fetchData(); // refresh inbox
-                                onDataChanged(); // 🔥 refresh dashboard
+                                await fetchData();
+                                onDataChanged();
                             }
 
                             setConfirmModal({
@@ -824,6 +852,13 @@ export default function InboxAdmin({ onDataChanged }: InboxAdminProps) {
                                 reportId: null,
                                 newStatus: null,
                             });
+                        }}
+                        sx={{
+                            textTransform: "none",
+                            borderRadius: 2,
+                            bgcolor: "#1976d2",
+                            "&:hover": { bgcolor: "#1565c0" },
+                            color: "#fff",
                         }}
                     >
                         Change Status

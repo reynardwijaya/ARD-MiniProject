@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import DeleteConfirmModal from "./DeleteConfirmModal";
 import {
     ColumnDef,
     useReactTable,
@@ -27,6 +28,8 @@ import {
     Chip,
     TablePagination,
     Fade,
+    Snackbar,
+    Alert,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -57,6 +60,10 @@ export default function ReportTable({ data, role }: ReportTableProps) {
     const router = useRouter();
     const [search, setSearch] = useState("");
     const [tableData, setTableData] = useState<Report[]>(data);
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [selectedReportId, setSelectedReportId] = useState<string | null>(
+        null
+    );
 
     // Filtered data by search
     const filteredData = useMemo(() => {
@@ -144,11 +151,22 @@ export default function ReportTable({ data, role }: ReportTableProps) {
         }
     }, [data, role]);
 
+    const [snackbar, setSnackbar] = useState<{
+        open: boolean;
+        message: string;
+        severity: "success" | "error";
+    }>({
+        open: false,
+        message: "",
+        severity: "success",
+    });
+
+    const onSnackbarClose = () => {
+        setSnackbar((prev) => ({ ...prev, open: false }));
+    };
+
     // Delete handler (hanya untuk reporter)
     const handleDelete = async (id: string) => {
-        const confirmDelete = confirm("Are you sure you want to delete?");
-        if (!confirmDelete) return;
-
         try {
             const response = await fetch(`/api/delete-report?id=${id}`, {
                 method: "DELETE",
@@ -157,16 +175,32 @@ export default function ReportTable({ data, role }: ReportTableProps) {
             if (!response.ok) {
                 const errData = await response.json();
                 const message = errData?.error ?? "Unknown error";
-                alert(`Delete failed: ${message}`);
+
+                // Snackbar error
+                setSnackbar({
+                    open: true,
+                    message: `Delete failed: ${message}`,
+                    severity: "error",
+                });
                 return;
             }
 
-            alert("Report deleted successfully");
+            // Snackbar success
+            setSnackbar({
+                open: true,
+                message: "Report deleted successfully",
+                severity: "success",
+            });
+
             setTableData((prev) => prev.filter((r) => r.id !== id));
         } catch (error: unknown) {
             const errMsg =
                 (error as { message?: string })?.message ?? "Unknown error";
-            alert(`Delete failed: ${errMsg}`);
+            setSnackbar({
+                open: true,
+                message: `Delete failed: ${errMsg}`,
+                severity: "error",
+            });
         }
     };
 
@@ -345,8 +379,9 @@ export default function ReportTable({ data, role }: ReportTableProps) {
                                         transition: "all 0.2s ease",
                                     }}
                                     onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDelete(row.original.id);
+                                        e.stopPropagation(); // agar row click tidak ikut ter-trigger
+                                        setSelectedReportId(row.original.id); // simpan id report
+                                        setDeleteModalOpen(true); // tampilkan modal
                                     }}
                                 >
                                     <DeleteIcon fontSize="small" />
@@ -523,6 +558,32 @@ export default function ReportTable({ data, role }: ReportTableProps) {
                         },
                     }}
                 />
+
+                <DeleteConfirmModal
+                    isOpen={deleteModalOpen}
+                    reportId={selectedReportId}
+                    onClose={() => setDeleteModalOpen(false)}
+                    onDelete={async (id: string) => {
+                        // Panggil handleDelete asli
+                        await handleDelete(id);
+                        setDeleteModalOpen(false);
+                    }}
+                />
+
+                <Snackbar
+                    open={snackbar.open}
+                    autoHideDuration={4000}
+                    onClose={onSnackbarClose}
+                    anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+                >
+                    <Alert
+                        severity={snackbar.severity}
+                        variant="filled"
+                        onClose={onSnackbarClose}
+                    >
+                        {snackbar.message}
+                    </Alert>
+                </Snackbar>
             </Box>
         </Fade>
     );

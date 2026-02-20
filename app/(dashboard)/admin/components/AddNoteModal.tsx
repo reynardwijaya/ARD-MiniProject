@@ -16,7 +16,7 @@ import { supabase } from "@/app/lib/supabase";
 interface AddNoteModalProps {
     isOpen: boolean;
     reportId: string | null;
-    nextStatus?: string | null; // ⬅ TAMBAH
+    nextStatus?: string | null;
     onClose: () => void;
     onSuccess: () => void;
 }
@@ -41,16 +41,10 @@ export default function AddNoteModal({
                 .eq("report_id", reportId)
                 .maybeSingle();
 
-            if (data) {
-                setNote(data.note);
-            } else {
-                setNote(""); // reset kalau tidak ada
-            }
+            setNote(data?.note || "");
         };
 
-        if (isOpen) {
-            fetchExistingNote();
-        }
+        if (isOpen) fetchExistingNote();
     }, [isOpen, reportId]);
 
     const handleClose = () => {
@@ -74,9 +68,7 @@ export default function AddNoteModal({
                 note: note.trim(),
                 updated_at: new Date().toISOString(),
             },
-            {
-                onConflict: "report_id",
-            }
+            { onConflict: "report_id" }
         );
 
         if (error) {
@@ -106,64 +98,86 @@ export default function AddNoteModal({
             PaperProps={{
                 sx: {
                     borderRadius: 3,
-                    boxShadow: "0 8px 40px rgba(0,0,0,0.12)",
+                    boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
+                    p: 3,
                 },
             }}
         >
+            {/* Title */}
             <DialogTitle
                 sx={{
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    borderBottom: "1px solid #e0e0e0",
-                    pb: 2,
-                    fontWeight: 600, // pindah ke sini
+                    fontWeight: 700,
+                    fontSize: 20,
+                    color: "#222",
+                    mb: 1,
                 }}
             >
                 Add Internal Note
-                <IconButton onClick={handleClose} size="small">
-                    <CloseIcon />
+                <IconButton
+                    onClick={handleClose}
+                    size="small"
+                    sx={{
+                        bgcolor: "#f0f0f0",
+                        "&:hover": { bgcolor: "#e0e0e0" },
+                    }}
+                >
+                    <CloseIcon fontSize="small" />
                 </IconButton>
             </DialogTitle>
 
-            <DialogContent sx={{ mt: 2 }}>
+            {/* Content */}
+            <DialogContent sx={{ mt: 1 }}>
                 <TextField
                     multiline
-                    rows={5}
+                    rows={6}
                     fullWidth
                     placeholder="Write internal note..."
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     sx={{
-                        mt: 1,
                         "& .MuiOutlinedInput-root": {
                             borderRadius: 2,
+                            bgcolor: "#fafafa",
+                            "&:hover fieldset": { borderColor: "#ccc" },
+                        },
+                        "& .MuiInputBase-input": {
+                            fontSize: 15,
+                            color: "#333",
                         },
                     }}
                 />
             </DialogContent>
 
-            <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
+            {/* Actions */}
+            <DialogActions sx={{ pt: 2, gap: 1 }}>
                 <Button
                     variant="outlined"
                     onClick={handleClose}
-                    sx={{ borderColor: "#666", color: "#666" }}
+                    sx={{
+                        textTransform: "none",
+                        color: "#555",
+                        borderRadius: 2,
+                        borderColor: "#ccc",
+                        "&:hover": { bgcolor: "#f5f5f5", borderColor: "#999" },
+                    }}
                 >
                     Cancel
                 </Button>
+
                 <Button
                     variant="contained"
                     onClick={handleSave}
                     disabled={!note.trim() || loading}
                     sx={{
+                        textTransform: "none",
                         bgcolor: "#1976d2",
-                        "&:hover": {
-                            bgcolor: "#1565c0",
-                        },
-                        "&:disabled": {
-                            bgcolor: "#e0e0e0",
-                            color: "#999",
-                        },
+                        borderRadius: 2,
+                        color: "#fff",
+                        "&:hover": { bgcolor: "#1565c0" },
+                        "&:disabled": { bgcolor: "#e0e0e0", color: "#999" },
                     }}
                 >
                     {loading ? "Saving..." : "Save Note"}

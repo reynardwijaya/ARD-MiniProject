@@ -27,6 +27,12 @@ interface ReportData {
     created_at: string;
     admin_note?: string | null;
     attachments: Attachment[];
+    notes?: {
+        id: string;
+        admin_id: string;
+        note: string;
+        created_at: string;
+    }[];
 }
 
 interface Department {
@@ -85,18 +91,25 @@ export default function ReporterReportDetailPage() {
         const fetchData = async () => {
             setLoading(true);
 
-            const [reportRes, deptRes, attachRes] = await Promise.all([
-                supabase
-                    .from("adverse_reports")
-                    .select("*")
-                    .eq("id", reportId)
-                    .single(),
-                supabase.from("department").select("id, name"),
-                supabase
-                    .from("report_attachments")
-                    .select("file_name, file_url")
-                    .eq("report_id", reportId),
-            ]);
+            const [reportRes, deptRes, attachRes, notesRes] = await Promise.all(
+                [
+                    supabase
+                        .from("adverse_reports")
+                        .select("*")
+                        .eq("id", reportId)
+                        .single(),
+                    supabase.from("department").select("id, name"),
+                    supabase
+                        .from("report_attachments")
+                        .select("file_name, file_url")
+                        .eq("report_id", reportId),
+                    supabase
+                        .from("report_note")
+                        .select("id, admin_id, note, created_at")
+                        .eq("report_id", reportId)
+                        .order("created_at", { ascending: false }),
+                ]
+            );
 
             const reportData = reportRes.data;
             if (!reportData) {
@@ -131,10 +144,19 @@ export default function ReporterReportDetailPage() {
                 )
             );
 
+            const notes =
+                notesRes.data?.map((note) => ({
+                    id: note.id,
+                    admin_id: note.admin_id,
+                    note: note.note,
+                    created_at: note.created_at,
+                })) || [];
+
             setReport({
                 ...reportData,
                 department_name: dept?.name ?? "-",
                 attachments,
+                notes,
             });
             setLoading(false);
         };

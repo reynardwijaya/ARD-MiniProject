@@ -61,6 +61,7 @@ export default function ReporterDashboard() {
     }, []);
 
     // Ambil report + department
+    // Ambil report + department
     useEffect(() => {
         const fetchReports = async () => {
             setLoading(true);
@@ -69,7 +70,9 @@ export default function ReporterDashboard() {
                 .from("adverse_reports")
                 .select(
                     "id, title, severity, status, incident_date, department_id, location"
-                );
+                )
+                .order("created_at", { ascending: false }); // ⬅️ Terbaru di atas
+
             if (reportError) {
                 console.error(reportError);
                 setReports([]);

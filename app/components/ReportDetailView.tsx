@@ -1,5 +1,3 @@
-// components/ReportDetailView.tsx
-
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -12,11 +10,20 @@ import {
     Divider,
     Fade,
 } from "@mui/material";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
+import DescriptionIcon from "@mui/icons-material/Description";
 
 interface Attachment {
     file_name: string;
     file_path: string;
     signed_url: string;
+}
+
+interface Note {
+    id: string;
+    admin_id: string;
+    note: string;
+    created_at: string;
 }
 
 interface ReportDetailViewProps {
@@ -33,6 +40,7 @@ interface ReportDetailViewProps {
         attachments: Attachment[];
         admin_note?: string | null;
         user_email?: string;
+        notes?: Note[];
     };
     role: "admin" | "reporter";
     backPath: string;
@@ -47,33 +55,41 @@ export default function ReportDetailView({
 }: ReportDetailViewProps) {
     const router = useRouter();
 
+    const formatDate = (dateStr: string) =>
+        new Date(dateStr).toLocaleDateString("id-ID", {
+            day: "2-digit",
+            month: "long",
+            year: "numeric",
+        });
+
     return (
         <Fade in={true} timeout={600}>
             <Box
                 sx={{
                     flex: 1,
-                    bgcolor: "#fafafa",
+                    bgcolor: "#f5f5f7",
                     display: "flex",
                     justifyContent: "center",
-                    p: 4,
+                    p: { xs: 2, md: 4 },
                     minHeight: "100vh",
                 }}
             >
                 <Paper
-                    elevation={1}
+                    elevation={2}
                     sx={{
                         width: "100%",
-                        maxWidth: 800,
-                        p: 6,
+                        maxWidth: 900,
+                        p: { xs: 4, md: 6 },
                         borderRadius: 3,
                         bgcolor: "white",
                     }}
                 >
+                    {/* Header */}
                     <Box sx={{ mb: 4 }}>
                         <Typography
                             variant="h4"
                             component="h1"
-                            sx={{ fontWeight: 600, color: "#333" }}
+                            sx={{ fontWeight: 700, color: "#222" }}
                         >
                             {report.title}
                         </Typography>
@@ -87,399 +103,370 @@ export default function ReportDetailView({
 
                     <Divider sx={{ mb: 4 }} />
 
+                    {/* Info Grid */}
                     <Box
                         sx={{
-                            display: "flex",
-                            flexDirection: "column",
+                            display: "grid",
+                            gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
                             gap: 3,
+                            mb: 3,
                         }}
                     >
-                        {/* Baris 1: Department & Severity */}
-                        <Box
-                            sx={{
-                                display: "grid",
-                                gridTemplateColumns: {
-                                    xs: "1fr",
-                                    md: "1fr 1fr",
-                                },
-                                gap: 3,
-                            }}
-                        >
-                            <Box>
-                                <Typography
-                                    variant="body2"
-                                    sx={{ fontWeight: 500, color: "#666" }}
-                                >
-                                    Department
-                                </Typography>
-                                <Typography variant="body1">
-                                    {report.department_name}
-                                </Typography>
-                            </Box>
-                            <Box>
-                                <Typography
-                                    variant="body2"
-                                    sx={{ fontWeight: 500, color: "#666" }}
-                                >
-                                    Severity
-                                </Typography>
-                                <Chip
-                                    label={report.severity}
-                                    size="small"
-                                    sx={{
-                                        bgcolor:
-                                            report.severity.toLowerCase() ===
-                                            "high"
-                                                ? "#d32f2f20"
-                                                : report.severity.toLowerCase() ===
-                                                    "medium"
-                                                  ? "#f57c0020"
-                                                  : "#388e3c20",
-                                        color:
-                                            report.severity.toLowerCase() ===
-                                            "high"
-                                                ? "#d32f2f"
-                                                : report.severity.toLowerCase() ===
-                                                    "medium"
-                                                  ? "#f57c00"
-                                                  : "#388e3c",
-                                        fontWeight: 600,
-                                        borderRadius: 2,
-                                    }}
-                                />
-                            </Box>
-                        </Box>
-
-                        {/* Baris 2: Status & Incident Date */}
-                        <Box
-                            sx={{
-                                display: "grid",
-                                gridTemplateColumns: {
-                                    xs: "1fr",
-                                    md: "1fr 1fr",
-                                },
-                                gap: 3,
-                            }}
-                        >
-                            <Box>
-                                <Typography
-                                    variant="body2"
-                                    sx={{ fontWeight: 500, color: "#666" }}
-                                >
-                                    Status
-                                </Typography>
-                                <Chip
-                                    label={report.status}
-                                    size="small"
-                                    sx={{
-                                        bgcolor:
-                                            report.status.toLowerCase() ===
-                                            "draft"
-                                                ? "#9e9e9e20"
-                                                : report.status.toLowerCase() ===
-                                                    "rejected"
-                                                  ? "#d32f2f20"
-                                                  : "#388e3c20",
-                                        color:
-                                            report.status.toLowerCase() ===
-                                            "draft"
-                                                ? "#9e9e9e"
-                                                : report.status.toLowerCase() ===
-                                                    "rejected"
-                                                  ? "#d32f2f"
-                                                  : "#388e3c",
-                                        fontWeight: 600,
-                                        borderRadius: 2,
-                                    }}
-                                />
-                            </Box>
-                            <Box>
-                                <Typography
-                                    variant="body2"
-                                    sx={{ fontWeight: 500, color: "#666" }}
-                                >
-                                    Incident Date
-                                </Typography>
-                                <Typography variant="body1">
-                                    {new Date(
-                                        report.incident_date
-                                    ).toLocaleDateString("id-ID", {
-                                        day: "2-digit",
-                                        month: "long",
-                                        year: "numeric",
-                                    })}
-                                </Typography>
-                            </Box>
-                        </Box>
-
-                        {/* Baris 3: Location & Reporter Email (HANYA ADMIN) */}
-                        <Box
-                            sx={{
-                                display: "grid",
-                                gridTemplateColumns: {
-                                    xs: "1fr",
-                                    md: "1fr 1fr",
-                                },
-                                gap: 3,
-                            }}
-                        >
-                            <Box>
-                                <Typography
-                                    variant="body2"
-                                    sx={{ fontWeight: 500, color: "#666" }}
-                                >
-                                    Location
-                                </Typography>
-                                <Typography variant="body1">
-                                    {report.location}
-                                </Typography>
-                            </Box>
-
-                            {role === "admin" && (
-                                <Box>
-                                    <Typography
-                                        variant="body2"
-                                        sx={{ fontWeight: 500, color: "#666" }}
-                                    >
-                                        Reporter Email
-                                    </Typography>
-                                    <Typography variant="body1">
-                                        {report.user_email || "-"}
-                                    </Typography>
-                                </Box>
-                            )}
-                        </Box>
-
-                        {/* Description */}
                         <Box>
                             <Typography
                                 variant="body2"
-                                sx={{ fontWeight: 500, color: "#666" }}
+                                sx={{ fontWeight: 600, color: "#555" }}
                             >
-                                Description
+                                Department
                             </Typography>
-                            <Typography variant="body1" sx={{ mt: 1 }}>
-                                {report.description}
+                            <Typography variant="body1">
+                                {report.department_name}
                             </Typography>
                         </Box>
-
-                        {/* Attachments */}
                         <Box>
                             <Typography
-                                variant="h6"
-                                sx={{ fontWeight: 500, color: "#333", mb: 2 }}
+                                variant="body2"
+                                sx={{ fontWeight: 600, color: "#555" }}
                             >
-                                Attachments
+                                Severity
                             </Typography>
-
-                            {report.attachments.length === 0 ? (
+                            <Chip
+                                label={report.severity}
+                                size="small"
+                                sx={{
+                                    mt: 0.5,
+                                    bgcolor:
+                                        report.severity.toLowerCase() === "high"
+                                            ? "#ffe5e5"
+                                            : report.severity.toLowerCase() ===
+                                                "medium"
+                                              ? "#fff4e5"
+                                              : "#e5f6e5",
+                                    color:
+                                        report.severity.toLowerCase() === "high"
+                                            ? "#d32f2f"
+                                            : report.severity.toLowerCase() ===
+                                                "medium"
+                                              ? "#f57c00"
+                                              : "#388e3c",
+                                    fontWeight: 600,
+                                    borderRadius: 2,
+                                }}
+                            />
+                        </Box>
+                        <Box>
+                            <Typography
+                                variant="body2"
+                                sx={{ fontWeight: 600, color: "#555" }}
+                            >
+                                Status
+                            </Typography>
+                            <Chip
+                                label={report.status}
+                                size="small"
+                                sx={{
+                                    mt: 0.5,
+                                    bgcolor:
+                                        report.status.toLowerCase() === "draft"
+                                            ? "#f0f0f0"
+                                            : report.status.toLowerCase() ===
+                                                "rejected"
+                                              ? "#ffe5e5"
+                                              : "#e5f6e5",
+                                    color:
+                                        report.status.toLowerCase() === "draft"
+                                            ? "#9e9e9e"
+                                            : report.status.toLowerCase() ===
+                                                "rejected"
+                                              ? "#d32f2f"
+                                              : "#388e3c",
+                                    fontWeight: 600,
+                                    borderRadius: 2,
+                                }}
+                            />
+                        </Box>
+                        <Box>
+                            <Typography
+                                variant="body2"
+                                sx={{ fontWeight: 600, color: "#555" }}
+                            >
+                                Incident Date
+                            </Typography>
+                            <Typography variant="body1">
+                                {formatDate(report.incident_date)}
+                            </Typography>
+                        </Box>
+                        <Box>
+                            <Typography
+                                variant="body2"
+                                sx={{ fontWeight: 600, color: "#555" }}
+                            >
+                                Location
+                            </Typography>
+                            <Typography variant="body1">
+                                {report.location}
+                            </Typography>
+                        </Box>
+                        {role === "admin" && (
+                            <Box>
                                 <Typography
                                     variant="body2"
-                                    sx={{ color: "#999" }}
+                                    sx={{ fontWeight: 600, color: "#555" }}
                                 >
-                                    No attachments available.
+                                    Reporter Email
                                 </Typography>
-                            ) : (
-                                <Box
-                                    sx={{
-                                        display: "flex",
-                                        flexWrap: "wrap",
-                                        gap: 3,
-                                    }}
-                                >
-                                    {report.attachments.map(
-                                        (att: Attachment) => {
-                                            const ext =
-                                                att.file_name
-                                                    .split(".")
-                                                    .pop()
-                                                    ?.toLowerCase() ?? "";
-                                            const isImage =
-                                                IMAGE_EXT.includes(ext);
-
-                                            return (
-                                                <Box
-                                                    key={att.file_path}
-                                                    sx={{
-                                                        width: 200,
-                                                        display: "flex",
-                                                        flexDirection: "column",
-                                                        alignItems: "center",
-                                                        gap: 1,
-                                                    }}
-                                                >
-                                                    {isImage &&
-                                                    att.signed_url ? (
-                                                        <Box
-                                                            sx={{
-                                                                width: 200,
-                                                                height: 200,
-                                                                borderRadius: 2,
-                                                                border: "1px solid #e0e0e0",
-                                                                overflow:
-                                                                    "hidden",
-                                                                cursor: "pointer",
-                                                            }}
-                                                            onClick={() =>
-                                                                window.open(
-                                                                    att.signed_url,
-                                                                    "_blank"
-                                                                )
-                                                            }
-                                                        >
-                                                            <img
-                                                                src={
-                                                                    att.signed_url
-                                                                }
-                                                                alt={
-                                                                    att.file_name
-                                                                }
-                                                                style={{
-                                                                    width: "100%",
-                                                                    height: "100%",
-                                                                    objectFit:
-                                                                        "cover",
-                                                                }}
-                                                            />
-                                                        </Box>
-                                                    ) : (
-                                                        <Box
-                                                            sx={{
-                                                                width: 200,
-                                                                height: 200,
-                                                                borderRadius: 2,
-                                                                border: "1px solid #e0e0e0",
-                                                                display: "flex",
-                                                                alignItems:
-                                                                    "center",
-                                                                justifyContent:
-                                                                    "center",
-                                                                textAlign:
-                                                                    "center",
-                                                                p: 2,
-                                                                bgcolor:
-                                                                    "#f9f9f9",
-                                                            }}
-                                                        >
-                                                            <Typography
-                                                                variant="body2"
-                                                                sx={{
-                                                                    color: "#666",
-                                                                }}
-                                                            >
-                                                                {att.file_name}
-                                                            </Typography>
-                                                        </Box>
-                                                    )}
-
-                                                    {att.signed_url && (
-                                                        <Box
-                                                            sx={{
-                                                                display: "flex",
-                                                                gap: 1,
-                                                            }}
-                                                        >
-                                                            {isImage && (
-                                                                <Button
-                                                                    variant="outlined"
-                                                                    size="small"
-                                                                    sx={{
-                                                                        borderRadius: 2,
-                                                                        textTransform:
-                                                                            "none",
-                                                                    }}
-                                                                    onClick={() =>
-                                                                        window.open(
-                                                                            att.signed_url,
-                                                                            "_blank"
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    View
-                                                                </Button>
-                                                            )}
-                                                            <a
-                                                                href={
-                                                                    att.signed_url
-                                                                }
-                                                                download={
-                                                                    att.file_name
-                                                                }
-                                                                style={{
-                                                                    textDecoration:
-                                                                        "none",
-                                                                }}
-                                                            >
-                                                                <Button
-                                                                    variant="outlined"
-                                                                    size="small"
-                                                                    sx={{
-                                                                        borderRadius: 2,
-                                                                        textTransform:
-                                                                            "none",
-                                                                    }}
-                                                                >
-                                                                    Download
-                                                                </Button>
-                                                            </a>
-                                                        </Box>
-                                                    )}
-                                                </Box>
-                                            );
-                                        }
-                                    )}
-                                </Box>
-                            )}
-                        </Box>
-
-                        {/* Admin Note */}
-                        {["reviewed", "approved", "rejected"].includes(
-                            report.status.toLowerCase()
-                        ) && (
-                            <Box
-                                sx={{
-                                    p: 3,
-                                    borderRadius: 2,
-                                    bgcolor: "#f9f9f9",
-                                    border: "1px solid #e0e0e0",
-                                }}
-                            >
-                                <Typography
-                                    variant="h6"
-                                    sx={{
-                                        fontWeight: 500,
-                                        color: "#333",
-                                        mb: 1,
-                                    }}
-                                >
-                                    Admin Note
-                                </Typography>
-                                <Typography variant="body2">
-                                    {report.admin_note || "No note provided"}
+                                <Typography variant="body1">
+                                    {report.user_email || "-"}
                                 </Typography>
                             </Box>
                         )}
+                    </Box>
 
-                        {/* Tombol Back */}
-                        <Box
-                            sx={{
-                                display: "flex",
-                                justifyContent: "flex-end",
-                                pt: 2,
-                            }}
+                    {/* Description */}
+                    <Box sx={{ mb: 4 }}>
+                        <Typography
+                            variant="body2"
+                            sx={{ fontWeight: 600, color: "#555", mb: 1 }}
                         >
-                            <Button
-                                variant="outlined"
-                                onClick={() => router.push(backPath)}
+                            Description
+                        </Typography>
+                        <Typography variant="body1">
+                            {report.description}
+                        </Typography>
+                    </Box>
+
+                    {/* Attachments */}
+                    <Box sx={{ mb: 4 }}>
+                        <Typography
+                            variant="h6"
+                            sx={{ fontWeight: 600, color: "#333", mb: 2 }}
+                        >
+                            Attachments
+                        </Typography>
+
+                        {report.attachments.length === 0 ? (
+                            <Typography variant="body2" sx={{ color: "#999" }}>
+                                No attachments available.
+                            </Typography>
+                        ) : (
+                            <Box
                                 sx={{
-                                    borderRadius: 2,
-                                    textTransform: "none",
-                                    px: 3,
+                                    display: "flex",
+                                    flexWrap: "wrap",
+                                    gap: 2,
                                 }}
                             >
-                                Back to Reports
-                            </Button>
+                                {report.attachments.map((att) => {
+                                    const ext =
+                                        att.file_name
+                                            .split(".")
+                                            .pop()
+                                            ?.toLowerCase() || "";
+                                    const isImage = [
+                                        "jpg",
+                                        "jpeg",
+                                        "png",
+                                        "webp",
+                                        "gif",
+                                    ].includes(ext);
+                                    const isPDF = ext === "pdf";
+
+                                    return (
+                                        <Paper
+                                            key={att.file_path}
+                                            elevation={1}
+                                            sx={{
+                                                width: 300,
+                                                minHeight: 150,
+                                                borderRadius: 2,
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: 2,
+                                                p: 2,
+                                            }}
+                                        >
+                                            {/* Icon / Preview */}
+                                            <Box
+                                                sx={{
+                                                    width: 80,
+                                                    height: 80,
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
+                                                    borderRadius: 1,
+                                                    bgcolor: isPDF
+                                                        ? "#e5393520"
+                                                        : "#1976d220",
+                                                    flexShrink: 0,
+                                                }}
+                                            >
+                                                {isPDF ? (
+                                                    <PictureAsPdfIcon
+                                                        sx={{
+                                                            color: "#e53935",
+                                                            fontSize: 48,
+                                                        }}
+                                                    />
+                                                ) : isImage ? (
+                                                    <img
+                                                        src={att.signed_url}
+                                                        alt={att.file_name}
+                                                        style={{
+                                                            width: "100%",
+                                                            height: "100%",
+                                                            objectFit: "cover",
+                                                            borderRadius: 8,
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <DescriptionIcon
+                                                        sx={{
+                                                            color: "#757575",
+                                                            fontSize: 48,
+                                                        }}
+                                                    />
+                                                )}
+                                            </Box>
+
+                                            {/* Info + Button */}
+                                            <Box
+                                                sx={{
+                                                    display: "flex",
+                                                    flexDirection: "column",
+                                                    justifyContent:
+                                                        "space-between",
+                                                    flexGrow: 1,
+                                                    overflow: "hidden",
+                                                }}
+                                            >
+                                                <Typography
+                                                    variant="body1"
+                                                    sx={{
+                                                        fontWeight: 500,
+                                                        color: "#333",
+                                                        whiteSpace: "nowrap",
+                                                        overflow: "hidden",
+                                                        textOverflow:
+                                                            "ellipsis",
+                                                    }}
+                                                >
+                                                    {att.file_name}
+                                                </Typography>
+                                                <Typography
+                                                    variant="caption"
+                                                    sx={{ color: "#666" }}
+                                                >
+                                                    {att.signed_url && "File"} •{" "}
+                                                    {att.signed_url &&
+                                                        "0.01 MB"}
+                                                </Typography>
+
+                                                {att.signed_url && (
+                                                    <Button
+                                                        variant="outlined"
+                                                        size="small"
+                                                        sx={{
+                                                            mt: 1,
+                                                            borderRadius: 2,
+                                                            alignSelf:
+                                                                "flex-start",
+                                                        }}
+                                                        onClick={() =>
+                                                            window.open(
+                                                                att.signed_url,
+                                                                "_blank"
+                                                            )
+                                                        }
+                                                    >
+                                                        View
+                                                    </Button>
+                                                )}
+                                            </Box>
+                                        </Paper>
+                                    );
+                                })}
+                            </Box>
+                        )}
+                    </Box>
+                    {/* Admin Notes */}
+                    {["reviewed", "approved", "rejected"].includes(
+                        report.status.toLowerCase()
+                    ) && (
+                        <Box sx={{ mb: 4 }}>
+                            <Typography
+                                variant="h6"
+                                sx={{ fontWeight: 600, color: "#333", mb: 2 }}
+                            >
+                                Admin Notes
+                            </Typography>
+
+                            {report.notes && report.notes.length > 0 ? (
+                                <Box
+                                    sx={{
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        gap: 2,
+                                    }}
+                                >
+                                    {report.notes.map((note) => (
+                                        <Paper
+                                            key={note.id}
+                                            elevation={1}
+                                            sx={{
+                                                p: 2,
+                                                borderRadius: 3,
+                                                bgcolor: "#fff",
+                                                "&:hover": { boxShadow: 4 },
+                                            }}
+                                        >
+                                            <Typography
+                                                variant="body1"
+                                                sx={{ color: "#333" }}
+                                            >
+                                                {note.note}
+                                            </Typography>
+                                            <Typography
+                                                variant="caption"
+                                                sx={{
+                                                    color: "#999",
+                                                    mt: 0.5,
+                                                    display: "block",
+                                                    textAlign: "right",
+                                                }}
+                                            >
+                                                Added on{" "}
+                                                {new Date(
+                                                    note.created_at
+                                                ).toLocaleString()}
+                                            </Typography>
+                                        </Paper>
+                                    ))}
+                                </Box>
+                            ) : (
+                                <Typography
+                                    variant="body2"
+                                    sx={{ color: "#666" }}
+                                >
+                                    No notes provided.
+                                </Typography>
+                            )}
                         </Box>
+                    )}
+
+                    {/* Back Button */}
+                    <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                        <Button
+                            variant="contained"
+                            onClick={() => router.push(backPath)}
+                            size="medium"
+                            sx={{
+                                borderRadius: 2,
+                                textTransform: "none",
+                                px: 4,
+                            }}
+                        >
+                            Back to Reports
+                        </Button>
                     </Box>
                 </Paper>
             </Box>

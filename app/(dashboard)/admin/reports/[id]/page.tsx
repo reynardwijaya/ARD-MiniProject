@@ -28,6 +28,12 @@ interface ReportData {
     user_id?: string;
     user_email: string;
     attachments: Attachment[];
+    notes?: {
+        id: string;
+        admin_id: string;
+        note: string;
+        created_at: string;
+    }[];
 }
 
 interface Department {
@@ -45,7 +51,6 @@ interface AttachmentRaw {
     file_url: string;
 }
 
-// ✅ Tambahkan fungsi ini (sama seperti reporter)
 const getRelativePath = (fileUrl: string) => {
     try {
         const url = new URL(fileUrl);
@@ -69,19 +74,25 @@ export default function AdminReportDetailPage() {
         const fetchData = async () => {
             setLoading(true);
 
-            const [reportRes, deptRes, userRes, attachRes] = await Promise.all([
-                supabase
-                    .from("adverse_reports")
-                    .select("*")
-                    .eq("id", reportId)
-                    .single(),
-                supabase.from("department").select("id, name"),
-                supabase.from("users").select("id, name"),
-                supabase
-                    .from("report_attachments")
-                    .select("file_name, file_url")
-                    .eq("report_id", reportId),
-            ]);
+            const [reportRes, deptRes, userRes, attachRes, notesRes] =
+                await Promise.all([
+                    supabase
+                        .from("adverse_reports")
+                        .select("*")
+                        .eq("id", reportId)
+                        .single(),
+                    supabase.from("department").select("id, name"),
+                    supabase.from("users").select("id, name"),
+                    supabase
+                        .from("report_attachments")
+                        .select("file_name, file_url")
+                        .eq("report_id", reportId),
+                    supabase
+                        .from("report_note")
+                        .select("id, admin_id, note, created_at")
+                        .eq("report_id", reportId)
+                        .order("created_at", { ascending: false }),
+                ]);
 
             const reportData = reportRes.data;
             if (!reportData) {
@@ -89,26 +100,21 @@ export default function AdminReportDetailPage() {
                 return;
             }
 
-            // Build user map
             const userMap: { [key: string]: string } = {};
-            if (userRes.data) {
+            if (userRes.data)
                 (userRes.data as User[]).forEach((u: User) => {
                     userMap[u.id] = u.name;
                 });
-            }
 
-            // Find department
             const dept = (deptRes.data as Department[] | null)?.find(
                 (d: Department) => d.id === reportData.department_id
             );
 
-            // Generate signed URLs - ✅ Pakai getRelativePath
             const attachments: Attachment[] = await Promise.all(
                 (attachRes.data ?? ([] as AttachmentRaw[])).map(
                     async (att: AttachmentRaw) => {
-                        const filePath = getRelativePath(att.file_url ?? ""); // ✅ Ubah ini
+                        const filePath = getRelativePath(att.file_url ?? "");
                         const fileName = att.file_name ?? "unknown";
-
                         let signedUrl = "";
                         if (filePath) {
                             const { data } = await supabase.storage
@@ -125,6 +131,14 @@ export default function AdminReportDetailPage() {
                 )
             );
 
+            const notes =
+                notesRes.data?.map((note) => ({
+                    id: note.id,
+                    admin_id: note.admin_id,
+                    note: note.note,
+                    created_at: note.created_at,
+                })) || [];
+
             setReport({
                 ...reportData,
                 department_name: dept?.name ?? "-",
@@ -132,6 +146,7 @@ export default function AdminReportDetailPage() {
                     ? (userMap[reportData.user_id] ?? "-")
                     : "-",
                 attachments,
+                notes,
             });
             setLoading(false);
         };
