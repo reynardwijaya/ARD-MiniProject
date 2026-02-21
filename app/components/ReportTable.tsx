@@ -24,7 +24,6 @@ import {
     Paper,
     Box,
     Typography,
-    MenuItem,
     Chip,
     TablePagination,
     Fade,
@@ -581,44 +580,60 @@ export default function ReportTable({ role }: ReportTableProps) {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {table.getRowModel().rows.map((row) => (
-                                <TableRow
-                                    key={row.id}
-                                    sx={{
-                                        "&:hover": {
-                                            bgcolor: "#f0f8ff",
-                                            transform: "translateY(-1px)",
-                                            boxShadow:
-                                                "0 2px 8px rgba(25, 118, 210, 0.1)",
-                                        },
-                                        transition: "all 0.2s ease",
-                                        cursor: "pointer",
-                                    }}
-                                    onClick={() =>
-                                        router.push(
-                                            role === "admin"
-                                                ? `/admin/reports/${row.original.id}`
-                                                : `/reporter/reports/${row.original.id}`
-                                        )
-                                    }
-                                >
-                                    {row.getVisibleCells().map((cell) => (
-                                        <TableCell
-                                            key={cell.id}
-                                            sx={{
-                                                borderBottom:
-                                                    "1px solid #e0e0e0",
-                                                py: 2,
-                                            }}
+                            {table.getRowModel().rows.length === 0 ? (
+                                <TableRow>
+                                    <TableCell
+                                        colSpan={columns.length}
+                                        sx={{ textAlign: "center", py: 8 }}
+                                    >
+                                        <Typography
+                                            variant="body2"
+                                            sx={{ color: "#999" }}
                                         >
-                                            {flexRender(
-                                                cell.column.columnDef.cell,
-                                                cell.getContext()
-                                            )}
-                                        </TableCell>
-                                    ))}
+                                            No pending reports
+                                        </Typography>
+                                    </TableCell>
                                 </TableRow>
-                            ))}
+                            ) : (
+                                table.getRowModel().rows.map((row) => (
+                                    <TableRow
+                                        key={row.id}
+                                        sx={{
+                                            "&:hover": {
+                                                bgcolor: "#f0f8ff",
+                                                transform: "translateY(-1px)",
+                                                boxShadow:
+                                                    "0 2px 8px rgba(25, 118, 210, 0.1)",
+                                            },
+                                            transition: "all 0.2s ease",
+                                            cursor: "pointer",
+                                        }}
+                                        onClick={() =>
+                                            router.push(
+                                                role === "admin"
+                                                    ? `/admin/reports/${row.original.id}`
+                                                    : `/reporter/reports/${row.original.id}`
+                                            )
+                                        }
+                                    >
+                                        {row.getVisibleCells().map((cell) => (
+                                            <TableCell
+                                                key={cell.id}
+                                                sx={{
+                                                    borderBottom:
+                                                        "1px solid #e0e0e0",
+                                                    py: 2,
+                                                }}
+                                            >
+                                                {flexRender(
+                                                    cell.column.columnDef.cell,
+                                                    cell.getContext()
+                                                )}
+                                            </TableCell>
+                                        ))}
+                                    </TableRow>
+                                ))
+                            )}
                         </TableBody>
                     </Table>
                 </TableContainer>

@@ -81,61 +81,66 @@ export default function AdminReportsPage() {
             setError(null);
 
             try {
-                const [reportsRes, departmentsRes, usersRes] =
-                    await Promise.all([
-                        supabase
-                            .from("adverse_reports")
-                            .select(
-                                "id, title, severity, status, incident_date, department_id, location, user_id, created_at"
-                            )
-                            .in("status", ["approved", "rejected"]) // admin hanya lihat approved/rejected
-                            .order("created_at", { ascending: false }),
-                        supabase.from("department").select("id, name"),
-                        supabase.from("users").select("id, name"),
-                    ]);
+                // Ambil reports + join department & reporter user
+                const { data: reportData, error: reportError } = await supabase
+                    .from("adverse_reports")
+                    .select(
+                        `
+            id,
+            title,
+            severity,
+            status,
+            incident_date,
+            location,
+            created_at,
+            department!adverse_reports_department_id_fkey ( id, name ),
+            users!adverse_reports_reporter_id_fkey ( id, name )
+        `
+                    )
+                    .in("status", ["approved", "rejected"]) // admin hanya lihat approved/rejected
+                    .order("created_at", { ascending: false });
 
-                if (reportsRes.error) {
-                    console.error("Report error:", reportsRes.error);
+                if (reportError) {
+                    console.error("Report error:", reportError);
                     setError("Failed to load reports");
                     setReports([]);
                     setLoading(false);
                     return;
                 }
 
-                const reportData = reportsRes.data as AdverseReport[];
-                const departmentData = departmentsRes.data as Department[];
-                const userData = usersRes.data as UserData[];
+                type ReportWithRelations = {
+                    id: string;
+                    title: string;
+                    severity: string;
+                    status: string;
+                    incident_date: string;
+                    location: string;
+                    created_at: string;
+                    department?: { id: string; name: string }[]; // ⚠️ array
+                    users?: { id: string; name: string }[]; // ⚠️ array
+                };
 
-                // Map user_id → name
-                const userNameMap: { [key: string]: string } = {};
-                userData?.forEach((u) => {
-                    userNameMap[u.id] = u.name;
-                });
-
-                const mapped: Report[] = (reportData || []).map((r) => {
-                    const dept = departmentData?.find(
-                        (d) => d.id === r.department_id
-                    );
-
-                    return {
-                        id: r.id,
-                        title: r.title,
-                        severity: r.severity,
-                        status: r.status,
-                        incident_date: r.incident_date,
-                        location: r.location || "",
-                        department_name: dept?.name || "-",
-                        department_id: r.department_id,
-                        user_id: r.user_id,
-                        name: r.user_id ? userNameMap[r.user_id] || "-" : "-",
-                        created_at: r.created_at || new Date().toISOString(),
-                    };
-                });
+                const mapped: Report[] = (
+                    reportData as ReportWithRelations[]
+                ).map((r) => ({
+                    id: r.id,
+                    title: r.title,
+                    severity: r.severity,
+                    status: r.status,
+                    incident_date: r.incident_date,
+                    location: r.location || "",
+                    department_name: r.department?.[0]?.name || "-",
+                    department_id: r.department?.[0]?.id,
+                    user_id: r.users?.[0]?.id || "",
+                    name: r.users?.[0]?.name || "-",
+                    created_at: r.created_at || new Date().toISOString(),
+                }));
 
                 setReports(mapped);
             } catch (err) {
                 console.error("Unexpected error:", err);
                 setError("An unexpected error occurred");
+                setReports([]);
             } finally {
                 setLoading(false);
             }

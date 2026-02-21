@@ -44,7 +44,7 @@ import AddNoteModal from "./AddNoteModal";
 interface InboxReport {
     id: string;
     title: string;
-    reporter_name: string;
+    user_name: string;
     department_name: string;
     severity: string;
     incident_date: string;
@@ -109,9 +109,18 @@ function getStatusColor(status: string): string {
 
 export default function InboxAdmin({ onDataChanged }: InboxAdminProps) {
     const router = useRouter();
+
     const [data, setData] = useState<InboxReport[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
+
+    // Pagination
+    const [pageIndex, setPageIndex] = useState(0);
+    const [pageSize, setPageSize] = useState(10);
+    const [totalData, setTotalData] = useState(0);
+
+    // Debounced search (supaya tidak fetch tiap ketikan)
+    const [debouncedSearch, setDebouncedSearch] = useState(search);
     const [noteModal, setNoteModal] = useState<{
         isOpen: boolean;
         reportId: string | null;
@@ -126,27 +135,40 @@ export default function InboxAdmin({ onDataChanged }: InboxAdminProps) {
         null
     );
 
-    const filteredData = useMemo(() => {
-        if (!search) return data;
-        return data.filter((r) =>
-            r.title.toLowerCase().includes(search.toLowerCase())
-        );
-    }, [search, data]);
+    // const filteredData = useMemo(() => {
+    //     if (!search) return data;
+    //     return data.filter((r) =>
+    //         r.title.toLowerCase().includes(search.toLowerCase())
+    //     );
+    // }, [search, data]);
 
     const fetchData = async () => {
-        const { data: result, error } = await supabase.rpc("get_inbox_reports");
-        if (error) {
-            console.error("Error fetching inbox:", error);
-            setLoading(false);
-            return;
+        setLoading(true);
+        try {
+            const res = await fetch(
+                `/api/reports?search=${debouncedSearch}&page=${pageIndex + 1}&limit=${pageSize}&role=admin&view=inbox`
+            );
+            const json = await res.json();
+
+            if (!res.ok) {
+                console.error("Error fetching reports:", json.error);
+                setData([]);
+                setTotalData(0);
+            } else {
+                setData(json.data || []);
+                setTotalData(json.total || 0);
+            }
+        } catch (err) {
+            console.error("Unexpected error:", err);
+            setData([]);
+            setTotalData(0);
         }
-        setData(result || []);
         setLoading(false);
     };
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [pageIndex, pageSize, debouncedSearch]);
 
     const handleStatusChange = async (reportId: string, newStatus: string) => {
         setAnchorEl(null);
@@ -198,6 +220,15 @@ export default function InboxAdmin({ onDataChanged }: InboxAdminProps) {
         newStatus: null,
     });
 
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearch(search);
+            setPageIndex(0); // reset ke page 0 saat search berubah
+        }, 500); // 500ms debounce
+
+        return () => clearTimeout(handler);
+    }, [search]);
+
     const columns = useMemo<ColumnDef<InboxReport>[]>(
         () => [
             {
@@ -221,7 +252,7 @@ export default function InboxAdmin({ onDataChanged }: InboxAdminProps) {
                 ),
             },
             {
-                accessorKey: "reporter_name",
+                accessorKey: "user_name",
                 header: "Reporter",
                 cell: ({ getValue }) => (
                     <Typography variant="body2">
@@ -349,11 +380,13 @@ export default function InboxAdmin({ onDataChanged }: InboxAdminProps) {
     );
 
     const table = useReactTable({
-        data: filteredData,
+        data,
         columns,
         getCoreRowModel: getCoreRowModel(),
         getPaginationRowModel: getPaginationRowModel(),
-        initialState: { pagination: { pageIndex: 0, pageSize: 10 } },
+        manualPagination: true, // <-- penting kalau server-side
+        pageCount: Math.ceil(totalData / pageSize), // <-- total page dari server
+        state: { pagination: { pageIndex, pageSize } }, // sync state react-table
     });
 
     if (loading) {
@@ -569,13 +602,14 @@ export default function InboxAdmin({ onDataChanged }: InboxAdminProps) {
 
                     <TablePagination
                         component="div"
-                        count={filteredData.length}
-                        page={table.getState().pagination.pageIndex}
-                        onPageChange={(_, page) => table.setPageIndex(page)}
-                        rowsPerPage={table.getState().pagination.pageSize}
-                        onRowsPerPageChange={(e) =>
-                            table.setPageSize(Number(e.target.value))
-                        }
+                        count={totalData} // <-- ganti ke total data dari server
+                        page={pageIndex}
+                        onPageChange={(_, page) => setPageIndex(page)}
+                        rowsPerPage={pageSize}
+                        onRowsPerPageChange={(e) => {
+                            setPageSize(Number(e.target.value));
+                            setPageIndex(0); // reset ke page 0 saat pageSize berubah
+                        }}
                         rowsPerPageOptions={[5, 10, 20, 50]}
                         sx={{
                             mt: 2,
@@ -583,9 +617,7 @@ export default function InboxAdmin({ onDataChanged }: InboxAdminProps) {
                                 justifyContent: "space-between",
                             },
                             "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows":
-                                {
-                                    color: "#666",
-                                },
+                                { color: "#666" },
                             "& .MuiIconButton-root": {
                                 color: "#1976d2",
                                 "&:hover": { bgcolor: "#1976d220" },

@@ -44,9 +44,14 @@ export async function GET(req: NextRequest) {
   // .in("status", ["approved", "rejected"])
   .order("created_at", { ascending: false });
 
-  // filter admin
+  const view = searchParams.get("view") ?? ""; // "inbox" atau "dashboard"
+
   if (role === "admin") {
-    query = query.in("status", ["approved", "rejected"]);
+    if (view === "inbox") {
+      query = query.in("status", ["submitted", "reviewed"]); // inbox admin
+    } else {
+      query = query.in("status", ["approved", "rejected"]); // dashboard/admin reports
+    }
   }
 
 if (search) {
@@ -88,7 +93,7 @@ const formatted = (data ?? []).map((r) => ({
   status: r.status,
   incident_date: r.incident_date,
   location: r.location,
-  created_at: r.created_at, // tambahkan ini
+  created_at: r.created_at,
   department_name: r.department?.name ?? "-",
   user_name: r.users?.name ?? "-",
 }));

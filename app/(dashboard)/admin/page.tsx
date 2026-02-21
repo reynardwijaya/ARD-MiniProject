@@ -24,7 +24,6 @@ export default function AdminDashboardPage() {
     });
     const [loading, setLoading] = useState(true);
 
-    // 🔥 Pindahkan fetchData jadi fetchDashboard supaya bisa dipanggil ulang
     const fetchDashboard = async () => {
         setLoading(true);
         const { data: result, error } = await supabase.rpc(
@@ -53,7 +52,7 @@ export default function AdminDashboardPage() {
 
     useEffect(() => {
         const fetch = async () => {
-            await fetchDashboard(); // ✅ memanggil async dengan aman
+            await fetchDashboard();
         };
         fetch();
     }, []);
@@ -73,7 +72,6 @@ export default function AdminDashboardPage() {
                 </div>
             </div>
             <div className="mt-6">
-                {/* Sekarang onDataChanged bisa dipanggil untuk refresh dashboard */}
                 <InboxAdmin onDataChanged={fetchDashboard} />
             </div>
         </div>
