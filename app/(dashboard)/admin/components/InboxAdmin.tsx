@@ -210,7 +210,7 @@ export default function InboxAdmin({ onDataChanged }: InboxAdminProps) {
                             fontWeight: 500,
                             color: "#333",
                             cursor: "pointer",
-                            "&:hover": { color: "#1976d2" },
+                            "&:hover": { color: "#333" },
                         }}
                         onClick={() =>
                             router.push(`/admin/reports/${row.original.id}`)

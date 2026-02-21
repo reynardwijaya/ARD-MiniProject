@@ -7,7 +7,6 @@ import {
     ColumnDef,
     useReactTable,
     getCoreRowModel,
-    getPaginationRowModel,
     flexRender,
 } from "@tanstack/react-table";
 
@@ -36,8 +35,6 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import SearchIcon from "@mui/icons-material/Search";
 import ClearIcon from "@mui/icons-material/Clear";
 
-import { supabase } from "../lib/supabase";
-
 interface Report {
     id: string;
     title: string;
@@ -47,109 +44,23 @@ interface Report {
     department_name: string;
     location: string;
     department_id?: string;
-    user_name?: string; // Ubah dari user_email ke user_name untuk admin (nama reporter)
-    user_id?: string; // Optional, hanya untuk admin
+    user_name?: string;
+    user_id?: string;
 }
 
 interface ReportTableProps {
     data: Report[];
-    role?: string; // Prop role untuk kondisikan admin/reporter
+    role?: string;
 }
 
-export default function ReportTable({ data, role }: ReportTableProps) {
+export default function ReportTable({ role }: ReportTableProps) {
     const router = useRouter();
     const [search, setSearch] = useState("");
-    const [tableData, setTableData] = useState<Report[]>(data);
+    const [tableData, setTableData] = useState<Report[]>([]);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [selectedReportId, setSelectedReportId] = useState<string | null>(
         null
     );
-
-    // Filtered data by search
-    const filteredData = useMemo(() => {
-        if (!search) return tableData;
-        return tableData.filter((r) =>
-            r.title.toLowerCase().includes(search.toLowerCase())
-        );
-    }, [search, tableData]);
-
-    useEffect(() => {
-        const fetchDepartments = async () => {
-            const updatedData = await Promise.all(
-                tableData.map(async (report) => {
-                    if (
-                        report.department_id &&
-                        report.department_name === "-"
-                    ) {
-                        try {
-                            const { data: dept, error } = await supabase
-                                .from("department")
-                                .select("name")
-                                .eq("id", report.department_id)
-                                .single();
-                            if (error) {
-                                return report;
-                            }
-                            return {
-                                ...report,
-                                department_name: dept?.name ?? "-",
-                            };
-                        } catch (err) {
-                            return report;
-                        }
-                    }
-                    return report;
-                })
-            );
-            setTableData(updatedData);
-        };
-        if (tableData.length > 0) {
-            fetchDepartments();
-        }
-    }, [data]);
-
-    // Fetch nama reporter untuk admin (hanya jika role admin dan ada user_id)
-    useEffect(() => {
-        if (role === "admin") {
-            const fetchReporterNames = async () => {
-                const updatedData = await Promise.all(
-                    tableData.map(async (report) => {
-                        if (report.user_name) return report; // Sudah ada, skip
-                        if (!report.user_id) {
-                            console.log(`Report ${report.id}: no user_id`);
-                            return report; // Tidak ada user_id, skip
-                        }
-                        console.log(
-                            `Fetching name for user_id: ${report.user_id}`
-                        );
-                        const { data: userData, error } = await supabase
-                            .from("users")
-                            .select("name")
-                            .eq("id", report.user_id)
-                            .single();
-                        if (error) {
-                            console.log(
-                                `Error fetching name for user_id ${report.user_id}:`,
-                                error
-                            );
-                            return { ...report, user_name: "-" };
-                        }
-                        console.log(
-                            `Name for user_id ${report.user_id}: ${userData?.name}`
-                        );
-                        return {
-                            ...report,
-                            user_name: userData?.name ?? "-",
-                        };
-                    })
-                );
-                setTableData(updatedData);
-            };
-            if (tableData.length > 0) {
-                fetchReporterNames();
-            }
-        }
-    }, [data, role]);
 
     const [snackbar, setSnackbar] = useState<{
         open: boolean;
@@ -192,7 +103,17 @@ export default function ReportTable({ data, role }: ReportTableProps) {
                 severity: "success",
             });
 
-            setTableData((prev) => prev.filter((r) => r.id !== id));
+            setTableData((prev) => {
+                const newData = prev.filter((r) => r.id !== id);
+
+                if (newData.length === 0 && pageIndex > 0) {
+                    setPageIndex((p) => p - 1);
+                }
+
+                return newData;
+            });
+
+            setTotalData((prev) => Math.max(prev - 1, 0));
         } catch (error: unknown) {
             const errMsg =
                 (error as { message?: string })?.message ?? "Unknown error";
@@ -203,6 +124,16 @@ export default function ReportTable({ data, role }: ReportTableProps) {
             });
         }
     };
+
+    const [debouncedSearch, setDebouncedSearch] = useState(search);
+
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearch(search);
+        }, 500);
+
+        return () => clearTimeout(handler);
+    }, [search]);
 
     // Columns berdasarkan role
     const columns = useMemo<ColumnDef<Report>[]>(() => {
@@ -302,7 +233,6 @@ export default function ReportTable({ data, role }: ReportTableProps) {
             },
         ];
 
-        // Tambah kolom nama reporter untuk admin (setelah title)
         if (role === "admin") {
             baseColumns.splice(1, 0, {
                 accessorKey: "user_name",
@@ -315,7 +245,6 @@ export default function ReportTable({ data, role }: ReportTableProps) {
             });
         }
 
-        // Tambah kolom actions untuk reporter (setelah status)
         if (role === "reporter") {
             baseColumns.push({
                 id: "actions",
@@ -396,13 +325,52 @@ export default function ReportTable({ data, role }: ReportTableProps) {
         return baseColumns;
     }, [role, router]);
 
+    const [pageIndex, setPageIndex] = useState(0);
+    const [pageSize, setPageSize] = useState(10);
+    const [totalData, setTotalData] = useState(0);
+
     const table = useReactTable({
-        data: filteredData,
+        data: tableData,
         columns,
+        pageCount: totalData > 0 ? Math.ceil(totalData / pageSize) : 0,
+        state: {
+            pagination: {
+                pageIndex,
+                pageSize,
+            },
+        },
+        manualPagination: true,
+        onPaginationChange: (updater) => {
+            const newPagination =
+                typeof updater === "function"
+                    ? updater({ pageIndex, pageSize })
+                    : updater;
+
+            setPageIndex(newPagination.pageIndex);
+            setPageSize(newPagination.pageSize);
+        },
         getCoreRowModel: getCoreRowModel(),
-        getPaginationRowModel: getPaginationRowModel(),
-        initialState: { pagination: { pageIndex: 0, pageSize: 10 } },
     });
+
+    useEffect(() => {
+        const fetchData = async () => {
+            const res = await fetch(
+                `/api/reports?search=${debouncedSearch}&page=${pageIndex + 1}&limit=${pageSize}`
+            );
+
+            if (!res.ok) {
+                console.error("Failed to fetch reports");
+                return;
+            }
+
+            const result = await res.json();
+
+            setTableData(result.data ?? []);
+            setTotalData(result.total ?? 0);
+        };
+
+        fetchData();
+    }, [debouncedSearch, pageIndex, pageSize]);
 
     return (
         <Fade in={true} timeout={600}>
@@ -417,7 +385,10 @@ export default function ReportTable({ data, role }: ReportTableProps) {
                     <TextField
                         placeholder="Search reports by title..."
                         value={search}
-                        onChange={(e) => setSearch(e.target.value)}
+                        onChange={(e) => {
+                            setSearch(e.target.value);
+                            setPageIndex(0);
+                        }}
                         variant="outlined"
                         size="small"
                         sx={{
@@ -465,8 +436,8 @@ export default function ReportTable({ data, role }: ReportTableProps) {
                     <Table>
                         <TableHead
                             sx={{
-                                bgcolor:
-                                    "linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)",
+                                background:
+                                    "linear-gradient(135deg, #ffffff 0%, #ffffff 100%)",
                             }}
                         >
                             <TableRow>
@@ -491,7 +462,7 @@ export default function ReportTable({ data, role }: ReportTableProps) {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {table.getRowModel().rows.map((row, index) => (
+                            {table.getRowModel().rows.map((row) => (
                                 <TableRow
                                     key={row.id}
                                     sx={{
@@ -535,13 +506,14 @@ export default function ReportTable({ data, role }: ReportTableProps) {
 
                 <TablePagination
                     component="div"
-                    count={filteredData.length}
+                    count={totalData}
                     page={table.getState().pagination.pageIndex}
                     onPageChange={(_, page) => table.setPageIndex(page)}
                     rowsPerPage={table.getState().pagination.pageSize}
-                    onRowsPerPageChange={(e) =>
-                        table.setPageSize(Number(e.target.value))
-                    }
+                    onRowsPerPageChange={(e) => {
+                        table.setPageSize(Number(e.target.value));
+                        table.setPageIndex(0);
+                    }}
                     rowsPerPageOptions={[5, 10, 20, 50]}
                     sx={{
                         mt: 2,

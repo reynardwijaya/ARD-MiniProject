@@ -61,7 +61,6 @@ export default function ReporterDashboard() {
     }, []);
 
     // Ambil report + department
-    // Ambil report + department
     useEffect(() => {
         const fetchReports = async () => {
             setLoading(true);
@@ -129,7 +128,6 @@ export default function ReporterDashboard() {
             ) : reports.length === 0 ? (
                 <p>No reports found</p>
             ) : (
-                // ✅ Tambahkan role="reporter" di sini
                 <ReportTable data={reports} role="reporter" />
             )}
         </LayoutUI>
