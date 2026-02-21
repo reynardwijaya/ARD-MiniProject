@@ -24,6 +24,7 @@ import {
     Paper,
     Box,
     Typography,
+    MenuItem,
     Chip,
     TablePagination,
     Fade,
@@ -54,6 +55,16 @@ interface ReportTableProps {
     role?: string;
 }
 
+function formatDate(dateString: string): string {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("id-ID", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+    });
+}
+
 export default function ReportTable({ role }: ReportTableProps) {
     const router = useRouter();
     const [search, setSearch] = useState("");
@@ -62,6 +73,11 @@ export default function ReportTable({ role }: ReportTableProps) {
     const [selectedReportId, setSelectedReportId] = useState<string | null>(
         null
     );
+
+    const [filterFrom, setFilterFrom] = useState<string>("");
+    const [filterTo, setFilterTo] = useState<string>("");
+    // const [filterSeverity, setFilterSeverity] = useState<string>("");
+    // const [filterStatus, setFilterStatus] = useState<string>("");
 
     const [snackbar, setSnackbar] = useState<{
         open: boolean;
@@ -201,9 +217,7 @@ export default function ReportTable({ role }: ReportTableProps) {
                 header: "Incident Date",
                 cell: (info) => (
                     <Typography variant="body2">
-                        {new Date(
-                            info.getValue() as string
-                        ).toLocaleDateString()}
+                        {formatDate(info.getValue() as string)}
                     </Typography>
                 ),
             },
@@ -212,12 +226,15 @@ export default function ReportTable({ role }: ReportTableProps) {
                 header: "Status",
                 cell: ({ getValue }) => {
                     const value = getValue() as string;
-                    const color =
-                        value.toLowerCase() === "draft"
-                            ? "#9e9e9e"
-                            : value.toLowerCase() === "rejected"
-                              ? "#d32f2f"
-                              : "#388e3c";
+                    let color = "#388e3c"; // default hijau
+
+                    if (value.toLowerCase() === "draft") color = "#9e9e9e";
+                    else if (value.toLowerCase() === "rejected")
+                        color = "#d32f2f";
+                    else if (value.toLowerCase() === "submitted")
+                        color = "#1976d2";
+                    else if (value.toLowerCase() === "reviewed")
+                        color = "#7b1fa2";
                     return (
                         <Chip
                             label={value}
@@ -334,14 +351,6 @@ export default function ReportTable({ role }: ReportTableProps) {
 
         const filtered = tableData;
 
-        // if (role === "admin") {
-        //     // Admin hanya lihat approved/rejected
-        //     filtered = filtered.filter((r) =>
-        //         ["approved", "rejected"].includes(r.status.toLowerCase())
-        //     );
-        // }
-
-        // Urut descending berdasarkan created_at
         filtered.sort(
             (a, b) =>
                 new Date(b.created_at).getTime() -
@@ -349,7 +358,7 @@ export default function ReportTable({ role }: ReportTableProps) {
         );
 
         return filtered;
-    }, [tableData, role]);
+    }, [tableData]);
     const table = useReactTable({
         data: filteredByRoleData, // pakai hasil filter + sort
         columns,
@@ -372,10 +381,11 @@ export default function ReportTable({ role }: ReportTableProps) {
         },
         getCoreRowModel: getCoreRowModel(),
     });
+
     useEffect(() => {
         const fetchData = async () => {
             const res = await fetch(
-                `/api/reports?search=${debouncedSearch}&page=${pageIndex + 1}&limit=${pageSize}&role=${role}`
+                `/api/reports?search=${debouncedSearch}&page=${pageIndex + 1}&limit=${pageSize}&role=${role}&from=${filterFrom}&to=${filterTo}`
             );
 
             if (!res.ok) {
@@ -389,12 +399,12 @@ export default function ReportTable({ role }: ReportTableProps) {
         };
 
         fetchData();
-    }, [debouncedSearch, pageIndex, pageSize, role]);
+    }, [debouncedSearch, pageIndex, pageSize, role, filterFrom, filterTo]);
 
     return (
         <Fade in={true} timeout={600}>
             <Box sx={{ p: 3, bgcolor: "#fafafa", minHeight: "100vh" }}>
-                <Box sx={{ mb: 3 }}>
+                <Box sx={{ mb: 2 }}>
                     <Typography
                         variant="h5"
                         sx={{ fontWeight: 600, color: "#333", mb: 2 }}
@@ -441,6 +451,96 @@ export default function ReportTable({ role }: ReportTableProps) {
                             ) : null,
                         }}
                     />
+                </Box>
+
+                <Box
+                    sx={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 1,
+                        mt: 1,
+                        mb: 3,
+                        alignItems: "center",
+                    }}
+                >
+                    {/* Date From */}
+                    <TextField
+                        label="From"
+                        type="date"
+                        size="small"
+                        InputLabelProps={{ shrink: true }}
+                        value={filterFrom}
+                        onChange={(e) => setFilterFrom(e.target.value)}
+                        sx={{
+                            "& .MuiOutlinedInput-root": {
+                                borderRadius: 2,
+                                backgroundColor: "#ffffff",
+                                "& fieldset": { borderColor: "#cbd5e1" },
+                                "&:hover fieldset": { borderColor: "#3b82f6" },
+                                "&.Mui-focused fieldset": {
+                                    borderColor: "#3b82f6",
+                                    borderWidth: 2,
+                                },
+                            },
+                            "& .MuiInputLabel-root": { color: "#64748b" },
+                            "& .MuiInputLabel-root.Mui-focused": {
+                                color: "#3b82f6",
+                            },
+                        }}
+                    />
+
+                    {/* To Date */}
+                    <TextField
+                        label="To"
+                        type="date"
+                        size="small"
+                        InputLabelProps={{ shrink: true }}
+                        value={filterTo}
+                        onChange={(e) => setFilterTo(e.target.value)}
+                        sx={{
+                            "& .MuiOutlinedInput-root": {
+                                borderRadius: 2,
+                                backgroundColor: "#ffffff",
+                                "& fieldset": { borderColor: "#cbd5e1" },
+                                "&:hover fieldset": { borderColor: "#3b82f6" },
+                                "&.Mui-focused fieldset": {
+                                    borderColor: "#3b82f6",
+                                    borderWidth: 2,
+                                },
+                            },
+                            "& .MuiInputLabel-root": { color: "#64748b" },
+                            "& .MuiInputLabel-root.Mui-focused": {
+                                color: "#3b82f6",
+                            },
+                        }}
+                    />
+
+                    {/* Reset Filter */}
+                    <Tooltip title="Reset Filter">
+                        <IconButton
+                            onClick={() => {
+                                setFilterFrom("");
+                                setFilterTo("");
+                                setPageIndex(0);
+                            }}
+                            sx={{
+                                color: "#1f6fdf",
+                                backgroundColor: "#ffffff",
+                                border: "1px solid #cbd5e1",
+                                borderRadius: 2,
+                                padding: "8px",
+                                transition: "all 0.2s",
+                                "&:hover": {
+                                    backgroundColor: "#eff6ff",
+                                    color: "#2563eb",
+                                    transform: "scale(1.05)",
+                                    borderColor: "#3b82f6",
+                                },
+                            }}
+                        >
+                            <ClearIcon />
+                        </IconButton>
+                    </Tooltip>
                 </Box>
 
                 <TableContainer

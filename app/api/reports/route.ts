@@ -19,10 +19,11 @@ export async function GET(req: NextRequest) {
     const page = Number(searchParams.get("page") ?? 1);
     const limit = Number(searchParams.get("limit") ?? 10);
     const role = searchParams.get("role") ?? ""; // default empty
+    const dateFrom = searchParams.get("from");
+    const dateTo = searchParams.get("to");
 
-
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
+   const pageStart = (page - 1) * limit;
+   const pageEnd = pageStart + limit - 1;
 
  let query = supabase
   .from("adverse_reports")
@@ -64,8 +65,15 @@ type ReportWithRelations = {
   users: { name: string } | null;
 };
 
+  if (dateFrom && dateFrom.trim() !== "") {
+  query = query.gte("incident_date", dateFrom);
+}
+if (dateTo && dateTo.trim() !== "") {
+  query = query.lte("incident_date", dateTo);
+}
+
 const { data, count, error } = await query
-  .range(from, to)
+  .range(pageStart, pageEnd)
   .returns<ReportWithRelations[]>();
 
 if (error) {
