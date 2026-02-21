@@ -332,14 +332,14 @@ export default function ReportTable({ role }: ReportTableProps) {
     const filteredByRoleData = useMemo(() => {
         if (!tableData) return [];
 
-        let filtered = tableData;
+        const filtered = tableData;
 
-        if (role === "admin") {
-            // Admin hanya lihat approved/rejected
-            filtered = filtered.filter((r) =>
-                ["approved", "rejected"].includes(r.status.toLowerCase())
-            );
-        }
+        // if (role === "admin") {
+        //     // Admin hanya lihat approved/rejected
+        //     filtered = filtered.filter((r) =>
+        //         ["approved", "rejected"].includes(r.status.toLowerCase())
+        //     );
+        // }
 
         // Urut descending berdasarkan created_at
         filtered.sort(
@@ -375,7 +375,7 @@ export default function ReportTable({ role }: ReportTableProps) {
     useEffect(() => {
         const fetchData = async () => {
             const res = await fetch(
-                `/api/reports?search=${debouncedSearch}&page=${pageIndex + 1}&limit=${pageSize}`
+                `/api/reports?search=${debouncedSearch}&page=${pageIndex + 1}&limit=${pageSize}&role=${role}`
             );
 
             if (!res.ok) {
@@ -384,13 +384,12 @@ export default function ReportTable({ role }: ReportTableProps) {
             }
 
             const result = await res.json();
-
             setTableData(result.data ?? []);
             setTotalData(result.total ?? 0);
         };
 
         fetchData();
-    }, [debouncedSearch, pageIndex, pageSize]);
+    }, [debouncedSearch, pageIndex, pageSize, role]);
 
     return (
         <Fade in={true} timeout={600}>
@@ -531,8 +530,10 @@ export default function ReportTable({ role }: ReportTableProps) {
                     onPageChange={(_, page) => table.setPageIndex(page)}
                     rowsPerPage={table.getState().pagination.pageSize}
                     onRowsPerPageChange={(e) => {
-                        table.setPageSize(Number(e.target.value));
-                        table.setPageIndex(0);
+                        const newSize = Number(e.target.value);
+                        setPageSize(newSize);
+                        setPageIndex(0); // reset ke page 0
+                        table.setPageSize(newSize);
                     }}
                     rowsPerPageOptions={[5, 10, 20, 50]}
                     sx={{

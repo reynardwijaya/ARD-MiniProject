@@ -10,25 +10,7 @@ if (!supabaseUrl || !supabaseServiceKey) {
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-/* =========================
-   TYPES
-========================= */
-
-type ReportRow = {
-  id: string;
-  title: string;
-  severity: string;
-  status: string;
-  incident_date: string;
-  location: string;
-  department: { name: string }[];  
-  user: { name: string }[];       
-};
-
-/* =========================
-   GET (Search + Pagination)
-========================= */
-
+//   GET (Search + Pagination)
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -36,6 +18,8 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search") ?? "";
     const page = Number(searchParams.get("page") ?? 1);
     const limit = Number(searchParams.get("limit") ?? 10);
+    const role = searchParams.get("role") ?? ""; // default empty
+
 
     const from = (page - 1) * limit;
     const to = from + limit - 1;
@@ -58,6 +42,11 @@ export async function GET(req: NextRequest) {
   )
   // .in("status", ["approved", "rejected"])
   .order("created_at", { ascending: false });
+
+  // filter admin
+  if (role === "admin") {
+    query = query.in("status", ["approved", "rejected"]);
+  }
 
 if (search) {
   query = query.ilike("title", `%${search}%`);
@@ -111,10 +100,7 @@ const formatted = (data ?? []).map((r) => ({
   }
 }
 
-/* =========================
-   DELETE
-========================= */
-
+// DELETE
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -127,7 +113,7 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    /* === Pre-check report === */
+    // Pre-check report 
     const { data: report, error: fetchError } = await supabase
       .from("adverse_reports")
       .select("id")
