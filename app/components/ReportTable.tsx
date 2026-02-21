@@ -41,6 +41,7 @@ interface Report {
     severity: string;
     status: string;
     incident_date: string;
+    created_at: string;
     department_name: string;
     location: string;
     department_id?: string;
@@ -328,9 +329,29 @@ export default function ReportTable({ role }: ReportTableProps) {
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(10);
     const [totalData, setTotalData] = useState(0);
+    const filteredByRoleData = useMemo(() => {
+        if (!tableData) return [];
 
+        let filtered = tableData;
+
+        if (role === "admin") {
+            // Admin hanya lihat approved/rejected
+            filtered = filtered.filter((r) =>
+                ["approved", "rejected"].includes(r.status.toLowerCase())
+            );
+        }
+
+        // Urut descending berdasarkan created_at
+        filtered.sort(
+            (a, b) =>
+                new Date(b.created_at).getTime() -
+                new Date(a.created_at).getTime()
+        );
+
+        return filtered;
+    }, [tableData, role]);
     const table = useReactTable({
-        data: tableData,
+        data: filteredByRoleData, // pakai hasil filter + sort
         columns,
         pageCount: totalData > 0 ? Math.ceil(totalData / pageSize) : 0,
         state: {
@@ -351,7 +372,6 @@ export default function ReportTable({ role }: ReportTableProps) {
         },
         getCoreRowModel: getCoreRowModel(),
     });
-
     useEffect(() => {
         const fetchData = async () => {
             const res = await fetch(

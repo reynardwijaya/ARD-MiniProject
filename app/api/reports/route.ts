@@ -50,13 +50,14 @@ export async function GET(req: NextRequest) {
       status,
       incident_date,
       location,
+      created_at,
       department!adverse_reports_department_id_fkey ( name ),
       users!adverse_reports_reporter_id_fkey ( name )
     `,
     { count: "exact" }
   )
-  .in("status", ["approved", "rejected"])
-  .order("incident_date", { ascending: false });
+  // .in("status", ["approved", "rejected"])
+  .order("created_at", { ascending: false });
 
 if (search) {
   query = query.ilike("title", `%${search}%`);
@@ -69,6 +70,7 @@ type ReportWithRelations = {
   status: string;
   incident_date: string;
   location: string;
+  created_at: string;    
   department: { name: string } | null;
   users: { name: string } | null;
 };
@@ -89,6 +91,7 @@ const formatted = (data ?? []).map((r) => ({
   status: r.status,
   incident_date: r.incident_date,
   location: r.location,
+  created_at: r.created_at, // tambahkan ini
   department_name: r.department?.name ?? "-",
   user_name: r.users?.name ?? "-",
 }));

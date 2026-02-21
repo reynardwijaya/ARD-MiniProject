@@ -11,6 +11,7 @@ interface Report {
     severity: string;
     status: string;
     incident_date: string;
+    created_at: string;
     department_name: string;
     location: string;
     department_id?: string;
@@ -27,6 +28,7 @@ interface AdverseReport {
     severity: string;
     status: string;
     incident_date: string;
+    created_at?: string;
     department_id?: string;
     location: string;
 }
@@ -102,6 +104,7 @@ export default function ReporterDashboard() {
                         location: r.location || "",
                         department_name: dept?.name || "-",
                         department_id: r.department_id,
+                        created_at: r.created_at || new Date().toISOString(),
                     };
                 }
             );

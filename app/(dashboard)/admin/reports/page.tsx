@@ -15,6 +15,7 @@ interface Report {
     department_id?: string;
     user_id?: string;
     name: string;
+    created_at: string;
 }
 
 interface Department {
@@ -31,6 +32,7 @@ interface AdverseReport {
     department_id?: string;
     location: string;
     user_id?: string;
+    created_at?: string;
 }
 
 interface UserData {
@@ -46,6 +48,7 @@ export default function AdminReportsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    // Ambil user dan role
     useEffect(() => {
         const fetchUser = async () => {
             try {
@@ -71,6 +74,7 @@ export default function AdminReportsPage() {
         fetchUser();
     }, []);
 
+    // Ambil reports + department + user
     useEffect(() => {
         const fetchReports = async () => {
             setLoading(true);
@@ -82,17 +86,13 @@ export default function AdminReportsPage() {
                         supabase
                             .from("adverse_reports")
                             .select(
-                                "id, title, severity, status, incident_date, department_id, location, user_id"
+                                "id, title, severity, status, incident_date, department_id, location, user_id, created_at"
                             )
-                            .in("status", ["approved", "rejected"])
+                            .in("status", ["approved", "rejected"]) // admin hanya lihat approved/rejected
                             .order("created_at", { ascending: false }),
                         supabase.from("department").select("id, name"),
                         supabase.from("users").select("id, name"),
                     ]);
-
-                const reportData = reportsRes.data;
-                const departmentData = departmentsRes.data;
-                const userData = usersRes.data;
 
                 if (reportsRes.error) {
                     console.error("Report error:", reportsRes.error);
@@ -102,35 +102,35 @@ export default function AdminReportsPage() {
                     return;
                 }
 
+                const reportData = reportsRes.data as AdverseReport[];
+                const departmentData = departmentsRes.data as Department[];
+                const userData = usersRes.data as UserData[];
+
+                // Map user_id → name
                 const userNameMap: { [key: string]: string } = {};
-                if (userData) {
-                    userData.forEach((u: UserData) => {
-                        userNameMap[u.id] = u.name;
-                    });
-                }
+                userData?.forEach((u) => {
+                    userNameMap[u.id] = u.name;
+                });
 
-                const mapped: Report[] = (reportData || []).map(
-                    (r: AdverseReport) => {
-                        const dept = departmentData?.find(
-                            (d: Department) => d.id === r.department_id
-                        );
+                const mapped: Report[] = (reportData || []).map((r) => {
+                    const dept = departmentData?.find(
+                        (d) => d.id === r.department_id
+                    );
 
-                        return {
-                            id: r.id,
-                            title: r.title,
-                            severity: r.severity,
-                            status: r.status,
-                            incident_date: r.incident_date,
-                            location: r.location || "",
-                            department_name: dept?.name || "-",
-                            department_id: r.department_id,
-                            user_id: r.user_id,
-                            name: r.user_id
-                                ? userNameMap[r.user_id] || "-"
-                                : "-",
-                        };
-                    }
-                );
+                    return {
+                        id: r.id,
+                        title: r.title,
+                        severity: r.severity,
+                        status: r.status,
+                        incident_date: r.incident_date,
+                        location: r.location || "",
+                        department_name: dept?.name || "-",
+                        department_id: r.department_id,
+                        user_id: r.user_id,
+                        name: r.user_id ? userNameMap[r.user_id] || "-" : "-",
+                        created_at: r.created_at || new Date().toISOString(),
+                    };
+                });
 
                 setReports(mapped);
             } catch (err) {
